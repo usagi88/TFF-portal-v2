@@ -51,8 +51,13 @@ export default function TFFPortal() {
         else { table[m.home].drawn++; table[m.away].drawn++; table[m.home].pts++; table[m.away].pts++; }
       });
     }
-    return Object.values(table).sort((a,b)=> b.pts - a.pts || (b.pf-b.pa)-(a.pf-a.pa) || b.pf - a.pf);
-  }, [results, currentWeek]);
+    return const arr = Object.values(table) as Standing[];
+arr.sort((a: Standing, b: Standing) =>
+  b.pts - a.pts ||
+  (b.pf - b.pa) - (a.pf - a.pa) ||
+  b.pf - a.pf
+);
+return arr;
 
   // Overall standings by cumulative points (1XI + 2XI appear when they have results)
   type OverallRow = { team: string; points: number };
