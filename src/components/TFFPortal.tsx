@@ -51,7 +51,7 @@ export default function TFFPortal() {
         else { table[m.home].drawn++; table[m.away].drawn++; table[m.home].pts++; table[m.away].pts++; }
       });
     }
-    return const arr = Object.values(table) as Standing[];
+    const arr = Object.values(table) as Standing[];
 arr.sort((a: Standing, b: Standing) =>
   b.pts - a.pts ||
   (b.pf - b.pa) - (a.pf - a.pa) ||
