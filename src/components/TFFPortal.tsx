@@ -51,11 +51,15 @@ export default function TFFPortal() {
       });
     }
     const arr = Object.values(table) as Standing[];
-    arr.sort((a: Standing, b: Standing) =>
-      b.pts - a.pts || (b.pf - b.pa) - (a.pf - a.pa) || b.pf - a.pf
-    );
-    return arr;
-  }, [results, currentWeek]);
+const cmpStanding = (a: Standing, b: Standing): number => {
+  if (b.pts !== a.pts) return b.pts - a.pts;
+  const gdA = a.pf - a.pa, gdB = b.pf - b.pa;
+  if (gdB !== gdA) return gdB - gdA;
+  return b.pf - a.pf;
+};
+arr.sort(cmpStanding);
+
+
 
   const overallByWeek: Record<number, OverallRow[]> = useMemo(() => {
     const out: Record<number, Record<string, number>> = {};
@@ -76,9 +80,10 @@ export default function TFFPortal() {
     Object.keys(out).forEach((k: string) => {
       const w = Number(k);
       ranked[w] = Object.entries(out[w])
-        .map(([team, points]) => ({ team, points: Number(points) }))
-        .sort((a: OverallRow, b: OverallRow) => b.points - a.points);
-    });
+  .map(([team, points]) => ({ team, points: Number(points) }))
+  .sort((a: OverallRow, b: OverallRow) => b.points - a.points)
+;
+
     return ranked;
   }, [results, currentWeek]);
 
@@ -105,9 +110,10 @@ export default function TFFPortal() {
   };
 
   const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
-    .filter((k: string) => k.startsWith('week'))
-    .map((k: string) => Number(k.replace('week', '')))
-    .sort((a: number, b: number) => a - b);
+  .filter((k: string) => k.startsWith('week'))
+  .map((k: string) => Number(k.replace('week', '')))
+  .sort((a: number, b: number) => a - b)
+
 
   const getResultFor = (w:number, home:string, away:string) => {
     const wk = (results as any)[`week${w}`] as Match[] || [];
