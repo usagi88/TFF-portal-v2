@@ -14,3 +14,4 @@ npm run dev
 ## Env (for Supabase later)
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
+
