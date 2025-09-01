@@ -14,8 +14,3 @@ npm run dev
 ## Env (for Supabase later)
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-
-## Data
-- Edit fixtures/results in `src/data`. Set the current week in `src/data/meta.json`.
-- OCR upload writes to browser only (trial). We can flip to Supabase for shared storage.
-- Roll of Honour lives in `src/data/rollofhonour.json`.
