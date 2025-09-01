@@ -1,0 +1,128 @@
+{
+  "week1": [
+    {
+      "home": "Time will Tel (1XI)",
+      "homeScore": 59,
+      "away": "Hugo First (1XI)",
+      "awayScore": 37
+    },
+    {
+      "home": "What's the Wirtz that could happen (1XI)",
+      "homeScore": 61,
+      "away": "Lazio FC (1XI)",
+      "awayScore": 57
+    },
+    {
+      "home": "MOBLANDERSON (1XI)",
+      "homeScore": 53,
+      "away": "Porro Ball Defending (1XI)",
+      "awayScore": 53
+    },
+    {
+      "home": "World Club Chumpions (1XI)",
+      "homeScore": 53,
+      "away": "Middle Earth FC (1XI)",
+      "awayScore": 42
+    },
+    {
+      "home": "Pecorino\u2019s (1XI)",
+      "homeScore": 46,
+      "away": "Chicken Cunha (1XI)",
+      "awayScore": 30
+    },
+    {
+      "home": "Jimmy's Jokers (1XI)",
+      "homeScore": 48,
+      "away": "Smoke AI (1XI)",
+      "awayScore": 48
+    },
+    {
+      "bye": "Always the Wright One (1XI)",
+      "byeScore": 36
+    }
+  ],
+  "week2": [
+    {
+      "home": "Time will Tel (1XI)",
+      "homeScore": 35,
+      "away": "What's the Wirtz that could happen (1XI)",
+      "awayScore": 52
+    },
+    {
+      "home": "Hugo First (1XI)",
+      "homeScore": 16,
+      "away": "MOBLANDERSON (1XI)",
+      "awayScore": 50
+    },
+    {
+      "home": "Lazio FC (1XI)",
+      "homeScore": 49,
+      "away": "World Club Chumpions (1XI)",
+      "awayScore": 42
+    },
+    {
+      "home": "Porro Ball Defending (1XI)",
+      "homeScore": 56,
+      "away": "Chicken Cunha (1XI)",
+      "awayScore": 56
+    },
+    {
+      "home": "Middle Earth FC (1XI)",
+      "homeScore": 26,
+      "away": "Jimmy's Jokers (1XI)",
+      "awayScore": 51
+    },
+    {
+      "home": "Pecorino\u2019s (1XI)",
+      "homeScore": 47,
+      "away": "Always the Wright One (1XI)",
+      "awayScore": 73
+    },
+    {
+      "bye": "Smoke AI (1XI)",
+      "byeScore": 37
+    }
+  ],
+  "week3": [
+    {
+      "home": "What's the Wirtz that could happen (1XI)",
+      "homeScore": 46,
+      "away": "Hugo First (1XI)",
+      "awayScore": 46
+    },
+    {
+      "home": "MOBLANDERSON (1XI)",
+      "homeScore": 65,
+      "away": "Lazio FC (1XI)",
+      "awayScore": 36
+    },
+    {
+      "home": "World Club Chumpions (1XI)",
+      "homeScore": 62,
+      "away": "Porro Ball Defending (1XI)",
+      "awayScore": 43
+    },
+    {
+      "home": "Chicken Cunha (1XI)",
+      "homeScore": 46,
+      "away": "Middle Earth FC (1XI)",
+      "awayScore": 76
+    },
+    {
+      "home": "Smoke AI (1XI)",
+      "homeScore": 50,
+      "away": "Pecorino\u2019s (1XI)",
+      "awayScore": 60
+    },
+    {
+      "home": "Always the Wright One (1XI)",
+      "homeScore": 46,
+      "away": "Time will Tel (1XI)",
+      "awayScore": 68
+    },
+    {
+      "bye": "Jimmy's Jokers (1XI)",
+      "byeScore": 54
+    }
+  ]
+}
