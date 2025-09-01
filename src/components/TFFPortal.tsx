@@ -172,7 +172,7 @@ export default function TFFPortal() {
   const weekKeys = Object.keys(fixtures)
     .filter((k) => k.startsWith('week'))
     .map((k) => Number(k.replace('week', '')))
-    .sort((a, b) => a - b);
+    .sort((a: number, b: number) => a - b);
 
   const getResultFor = (w: number, home: string, away: string) => {
     const wk = (results as any)[`week${w}`] as Match[] | undefined;
