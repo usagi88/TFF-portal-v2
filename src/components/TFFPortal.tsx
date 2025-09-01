@@ -60,30 +60,45 @@ arr.sort((a: Standing, b: Standing) =>
 return arr;
 
   // Overall standings by cumulative points (1XI + 2XI appear when they have results)
-  type OverallRow = { team: string; points: number };
-  const overallByWeek: Record<number, OverallRow[]> = useMemo(() => {
-    const out: Record<number, Record<string, number>> = {};
-    for (let w = 1; w <= currentWeek; w++) {
-      const key = `week${w}`;
-      const agg = { ...(out[w-1] || {}) } as Record<string, number>;
-      const wk = (results as any)[key] || [];
-      wk.forEach((m: Match) => {
-        if (m.bye && typeof m.byeScore === 'number') { agg[m.bye] = (agg[m.bye]||0) + m.byeScore; return; }
-        if (!m.bye) {
-          if (m.home && typeof m.homeScore === 'number') agg[m.home] = (agg[m.home] || 0) + m.homeScore;
-          if (m.away && typeof m.awayScore === 'number') agg[m.away] = (agg[m.away] || 0) + m.awayScore;
+type OverallRow = { team: string; points: number };
+
+const overallByWeek: Record<number, OverallRow[]> = useMemo(() => {
+  const out: Record<number, Record<string, number>> = {};
+
+  for (let w = 1; w <= currentWeek; w++) {
+    const key = `week${w}`;
+    const agg = { ...(out[w - 1] || {}) } as Record<string, number>;
+    const wk = (results as any)[key] || [];
+
+    wk.forEach((m: Match) => {
+      if (m.bye && typeof m.byeScore === 'number') {
+        agg[m.bye] = (agg[m.bye] || 0) + m.byeScore;
+        return;
+      }
+      if (!m.bye) {
+        if (m.home && typeof m.homeScore === 'number') {
+          agg[m.home] = (agg[m.home] || 0) + m.homeScore;
         }
-      });
-      out[w] = agg;
-    }
-    const ranked: Record<number, OverallRow[]> = {};
-    Object.keys(out).forEach(k => {
-      const w = Number(k);
-      ranked[w] = Object.entries(out[w])
-  .map(([team, points]) => ({ team, points: Number(points) }))
-  .sort((a: OverallRow, b: OverallRow) => b.points - a.points);
-    return ranked;
-  }, [results, currentWeek]);
+        if (m.away && typeof m.awayScore === 'number') {
+          agg[m.away] = (agg[m.away] || 0) + m.awayScore;
+        }
+      }
+    });
+
+    out[w] = agg;
+  }
+
+  const ranked: Record<number, OverallRow[]> = {};
+
+  Object.keys(out).forEach((k) => {
+    const w = Number(k);
+    ranked[w] = Object.entries(out[w])
+      .map(([team, points]) => ({ team, points: Number(points) }))
+      .sort((a: OverallRow, b: OverallRow) => b.points - a.points);
+  });
+
+  return ranked;
+}, [results, currentWeek]);
 
   const overallStandings = overallByWeek[currentWeek] || [];
   const lastWeekStandings = overallByWeek[currentWeek-1] || [];
