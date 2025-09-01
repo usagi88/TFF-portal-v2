@@ -79,8 +79,9 @@ return arr;
     const ranked: Record<number, OverallRow[]> = {};
     Object.keys(out).forEach(k => {
       const w = Number(k);
-      ranked[w] = Object.entries(out[w]).map(([team, points]) => ({ team, points })).sort((a,b)=> b.points - a.points);
-    });
+      ranked[w] = Object.entries(out[w])
+  .map(([team, points]) => ({ team, points: Number(points) }))
+  .sort((a: OverallRow, b: OverallRow) => b.points - a.points);
     return ranked;
   }, [results, currentWeek]);
 
