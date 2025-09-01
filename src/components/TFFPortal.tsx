@@ -168,10 +168,12 @@ export default function TFFPortal() {
     return letters.reverse().join('');
   };
 
-  const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
-    .filter((k: string) => k.startsWith('week'))
-    .map((k: string) => Number(k.replace('week', '')))
-    .sort((a: number, b: number) => a - b);
+// Ensure week keys are numeric and sorted ascending (typed to avoid TS7006)
+const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
+  .filter((k: string) => k.startsWith('week'))
+  .map((k: string) => Number(k.replace('week', '')))
+  .sort((a: number, b: number) => a - b);
+
 
   const getResultFor = (w: number, home: string, away: string) => {
     const wk = (results as any)[`week${w}`] as Match[] | undefined;
