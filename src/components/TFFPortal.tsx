@@ -279,12 +279,14 @@ export default function TFFPortal() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {Array.from({ length: currentWeek }, (_, i) => i + 1).map((week) => {
                   const wk = (results as any)[`week${week}`] || [];
-                  const scores = wk
-                    .filter((m: Match) => !m.bye && typeof m.homeScore === 'number')
-                    .flatMap((m: Match) => [m.homeScore as number, m.awayScore as number]);
-                  const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-                  const max = scores.length ? Math.max(...scores) : 0;
-                  const min = scores.length ? Math.min(...scores) : 0;
+                  const scores: number[] = (wk as Match[])
+  .filter((m) => !m.bye && typeof m.homeScore === 'number' && typeof m.awayScore === 'number')
+  .flatMap((m) => [m.homeScore as number, m.awayScore as number]);
+
+const sum = scores.reduce((sum: number, n: number) => sum + n, 0);
+const avg = scores.length ? Math.round(sum / scores.length) : 0;
+const max = scores.length ? Math.max(...scores) : 0;
+const min = scores.length ? Math.min(...scores) : 0;
                   return (
                     <div key={week} className="p-3 rounded-md bg-white border">
                       <div className="font-medium mb-1">Week {week}</div>
