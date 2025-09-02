@@ -252,20 +252,28 @@ export default function TFFPortal() {
         </div>
 
         {activeTab === 'dashboard' && (
-          <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <TrendingUp /> Current Highlights
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <span className="font-medium">Overall Leader</span>
-                <p className="font-bold text-green-700">{overallLeader}</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <span className="font-medium">Chumpions Leader</span>
-                <p className="font-bold text-blue-700">{chumpionsLeader}</p>
-              </div>
-            </div>
+  <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+    <h2 className="text-xl font-bold flex items-center gap-2">
+      <TrendingUp /> Current Highlights
+    </h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-green-50 p-4 rounded-lg">
+        <span className="font-medium">Overall Leader</span>
+        <p className="font-bold text-green-700">{overallLeader}</p>
+      </div>
+      <div className="bg-blue-50 p-4 rounded-lg">
+        <span className="font-medium">Chumpions Leader</span>
+        <p className="font-bold text-blue-700">{chumpionsLeader}</p>
+      </div>
+    </div>
+
+    {/* Latest Results */}
+    <section aria-label="Latest Results" className="space-y-3">
+      {/* …render latest results here… */}
+    </section>
+  </div>
+)}
 
             {/* Latest Results */}
             <div>
