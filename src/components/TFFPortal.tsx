@@ -30,8 +30,26 @@ type Standing = {
 type OverallRow = { team: string; points: number };
 
 /* ──────────────────────────────────────────────────────────────
-   Typed comparators (use these everywhere to avoid TS7006)
+   Typed comparators + typedSort wrapper
    ────────────────────────────────────────────────────────────── */
+const byStanding = (a: Standing, b: Standing): number => {
+  if (b.pts !== a.pts) return b.pts - a.pts;        // points
+  const gdA = a.pf - a.pa, gdB = b.pf - b.pa;       // goal diff
+  if (gdB !== gdA) return gdB - gdA;
+  return b.pf - a.pf;                               // points for
+};
+const byOverallPoints = (a: OverallRow, b: OverallRow): number => b.points - a.points;
+const byNumberAsc = (a: number, b: number): number => a - b;
+
+const typedSort = <T,>(arr: T[], cmp: (a: T, b: T) => number): T[] => {
+  arr.sort(cmp);
+  return arr;
+};
+
+
+/* ──────────────────────────────────────────────────────────────
+   Typed comparators (use these everywhere to avoid TS7006)
+   ──────────────────────────────────────────────────────────────
 const byStanding = (a: Standing, b: Standing): number => {
   if (b.pts !== a.pts) return b.pts - a.pts;        // points
   const gdA = a.pf - a.pa, gdB = b.pf - b.pa;       // goal diff
