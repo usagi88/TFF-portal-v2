@@ -29,6 +29,18 @@ type Standing = {
 
 type OverallRow = { team: string; points: number };
 
+/* ──────────────────────────────────────────────────────────────
+   Typed comparators (use these everywhere to avoid TS7006)
+   ────────────────────────────────────────────────────────────── */
+const byStanding = (a: Standing, b: Standing): number => {
+  if (b.pts !== a.pts) return b.pts - a.pts;        // points
+  const gdA = a.pf - a.pa, gdB = b.pf - b.pa;       // goal diff
+  if (gdB !== gdA) return gdB - gdA;
+  return b.pf - a.pf;                               // points for
+};
+const byOverallPoints = (a: OverallRow, b: OverallRow): number => b.points - a.points;
+const byNumberAsc = (a: number, b: number): number => a - b;
+
 export default function TFFPortal() {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'chumpions' | 'overall' | 'weekly' | 'fixtures' | 'roll' | 'nations' | 'lms'
@@ -98,17 +110,7 @@ export default function TFFPortal() {
     }
 
     const arr = Object.values(table) as Standing[];
-
-    // ✅ Typed comparator prevents TS7006
-    const cmpStanding = (a: Standing, b: Standing): number => {
-      if (b.pts !== a.pts) return b.pts - a.pts; // points
-      const gdA = a.pf - a.pa;
-      const gdB = b.pf - b.pa;
-      if (gdB !== gdA) return gdB - gdA; // goal diff
-      return b.pf - a.pf; // points for
-    };
-
-    arr.sort(cmpStanding);
+    arr.sort(byStanding); // ← typed comparator
     return arr;
   }, [results, currentWeek]);
 
@@ -140,7 +142,7 @@ export default function TFFPortal() {
       const w = Number(k);
       ranked[w] = Object.entries(out[w])
         .map(([team, points]) => ({ team, points: Number(points) }))
-        .sort((a: OverallRow, b: OverallRow) => b.points - a.points); // ✅ typed
+        .sort(byOverallPoints); // ← typed comparator
     });
 
     return ranked;
@@ -171,7 +173,7 @@ export default function TFFPortal() {
   const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
     .filter((k: string) => k.startsWith('week'))
     .map((k: string) => Number(k.replace('week', '')))
-    .sort((a: number, b: number) => a - b); // ✅ typed
+    .sort(byNumberAsc); // ← typed comparator
 
   const getResultFor = (w: number, home: string, away: string) => {
     const wk = (results as any)[`week${w}`] as Match[] | undefined;
