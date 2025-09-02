@@ -140,7 +140,7 @@ export default function TFFPortal() {
       const w = Number(k);
       ranked[w] = Object.entries(out[w])
         .map(([team, points]) => ({ team, points: Number(points) }))
-        .sort((a: OverallRow, b: OverallRow) => b.points - a.points)
+        .sort((a: OverallRow, b: OverallRow) => b.points - a.points); // ✅ typed
     });
 
     return ranked;
@@ -168,12 +168,10 @@ export default function TFFPortal() {
     return letters.reverse().join('');
   };
 
-// Ensure week keys are numeric and sorted ascending (typed to avoid TS7006)
-const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
-  .filter((k: string) => k.startsWith('week'))
-  .map((k: string) => Number(k.replace('week', '')))
-  .sort((a: number, b: number) => a - b);
-
+  const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
+    .filter((k: string) => k.startsWith('week'))
+    .map((k: string) => Number(k.replace('week', '')))
+    .sort((a: number, b: number) => a - b); // ✅ typed
 
   const getResultFor = (w: number, home: string, away: string) => {
     const wk = (results as any)[`week${w}`] as Match[] | undefined;
