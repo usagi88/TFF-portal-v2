@@ -251,7 +251,7 @@ export default function TFFPortal() {
           </div>
         </div>
 
-        {activeTab === 'dashboard' && (
+     {activeTab === 'dashboard' && (
   <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
     <h2 className="text-xl font-bold flex items-center gap-2">
       <TrendingUp /> Current Highlights
@@ -269,34 +269,32 @@ export default function TFFPortal() {
     </div>
 
     {/* Latest Results */}
-    <section aria-label="Latest Results" className="space-y-3">
-      {/* …render latest results here… */}
-    </section>
+    <div>
+      <h3 className="text-lg font-semibold mb-2">
+        Latest Results — Week {currentWeek}
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {((results as any)[`week${currentWeek}`] || []).map((m: Match, i: number) =>
+          m.bye ? (
+            <div key={i} className="p-3 rounded-md bg-blue-50 border-l-4 border-blue-400">
+              BYE: {m.bye} {typeof m.byeScore === 'number' ? `(${m.byeScore})` : ''}
+            </div>
+          ) : (
+            <div key={i} className="p-3 rounded-md bg-gray-50 border-l-4 border-gray-300 flex justify-between">
+              <span>
+                {m.home} vs {m.away}
+              </span>
+              <span className="font-semibold">
+                {typeof m.homeScore === 'number' ? `${m.homeScore}–${m.awayScore}` : '—'}
+              </span>
+            </div>
+          )
+        )}
+      </div>
+    </div>
   </div>
 )}
 
-            {/* Latest Results */}
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Latest Results — Week {currentWeek}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {((results as any)[`week${currentWeek}`] || []).map((m: Match, i: number) =>
-                  m.bye ? (
-                    <div key={i} className="p-3 rounded-md bg-blue-50 border-l-4 border-blue-400">
-                      BYE: {m.bye} {typeof m.byeScore === 'number' ? `(${m.byeScore})` : ''}
-                    </div>
-                  ) : (
-                    <div key={i} className="p-3 rounded-md bg-gray-50 border-l-4 border-gray-300 flex justify-between">
-                      <span>
-                        {m.home} vs {m.away}
-                      </span>
-                      <span className="font-semibold">
-                        {typeof m.homeScore === 'number' ? `${m.homeScore}–${m.awayScore}` : '—'}
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
 
             {/* Weekly Report */}
             <div>
