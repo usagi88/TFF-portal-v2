@@ -30,26 +30,8 @@ type Standing = {
 type OverallRow = { team: string; points: number };
 
 /* ──────────────────────────────────────────────────────────────
-   Typed comparators + typedSort wrapper
+   Typed comparators
    ────────────────────────────────────────────────────────────── */
-const byStanding = (a: Standing, b: Standing): number => {
-  if (b.pts !== a.pts) return b.pts - a.pts;        // points
-  const gdA = a.pf - a.pa, gdB = b.pf - b.pa;       // goal diff
-  if (gdB !== gdA) return gdB - gdA;
-  return b.pf - a.pf;                               // points for
-};
-const byOverallPoints = (a: OverallRow, b: OverallRow): number => b.points - a.points;
-const byNumberAsc = (a: number, b: number): number => a - b;
-
-const typedSort = <T,>(arr: T[], cmp: (a: T, b: T) => number): T[] => {
-  arr.sort(cmp);
-  return arr;
-};
-
-
-/* ──────────────────────────────────────────────────────────────
-   Typed comparators (use these everywhere to avoid TS7006)
-   ──────────────────────────────────────────────────────────────
 const byStanding = (a: Standing, b: Standing): number => {
   if (b.pts !== a.pts) return b.pts - a.pts;        // points
   const gdA = a.pf - a.pa, gdB = b.pf - b.pa;       // goal diff
@@ -128,7 +110,7 @@ export default function TFFPortal() {
     }
 
     const arr = Object.values(table) as Standing[];
-    arr.sort(byStanding); // ← typed comparator
+    arr.sort(byStanding);
     return arr;
   }, [results, currentWeek]);
 
@@ -160,7 +142,7 @@ export default function TFFPortal() {
       const w = Number(k);
       ranked[w] = Object.entries(out[w])
         .map(([team, points]) => ({ team, points: Number(points) }))
-        .sort(byOverallPoints); // ← typed comparator
+        .sort(byOverallPoints);
     });
 
     return ranked;
@@ -191,7 +173,7 @@ export default function TFFPortal() {
   const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
     .filter((k: string) => k.startsWith('week'))
     .map((k: string) => Number(k.replace('week', '')))
-    .sort(byNumberAsc); // ← typed comparator
+    .sort(byNumberAsc);
 
   const getResultFor = (w: number, home: string, away: string) => {
     const wk = (results as any)[`week${w}`] as Match[] | undefined;
@@ -251,50 +233,45 @@ export default function TFFPortal() {
           </div>
         </div>
 
-     {activeTab === 'dashboard' && (
-  <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
-    <h2 className="text-xl font-bold flex items-center gap-2">
-      <TrendingUp /> Current Highlights
-    </h2>
+        {activeTab === 'dashboard' && (
+          <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <TrendingUp /> Current Highlights
+            </h2>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-green-50 p-4 rounded-lg">
-        <span className="font-medium">Overall Leader</span>
-        <p className="font-bold text-green-700">{overallLeader}</p>
-      </div>
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <span className="font-medium">Chumpions Leader</span>
-        <p className="font-bold text-blue-700">{chumpionsLeader}</p>
-      </div>
-    </div>
-
-    {/* Latest Results */}
-    <div>
-      <h3 className="text-lg font-semibold mb-2">
-        Latest Results — Week {currentWeek}
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {((results as any)[`week${currentWeek}`] || []).map((m: Match, i: number) =>
-          m.bye ? (
-            <div key={i} className="p-3 rounded-md bg-blue-50 border-l-4 border-blue-400">
-              BYE: {m.bye} {typeof m.byeScore === 'number' ? `(${m.byeScore})` : ''}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <span className="font-medium">Overall Leader</span>
+                <p className="font-bold text-green-700">{overallLeader}</p>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <span className="font-medium">Chumpions Leader</span>
+                <p className="font-bold text-blue-700">{chumpionsLeader}</p>
+              </div>
             </div>
-          ) : (
-            <div key={i} className="p-3 rounded-md bg-gray-50 border-l-4 border-gray-300 flex justify-between">
-              <span>
-                {m.home} vs {m.away}
-              </span>
-              <span className="font-semibold">
-                {typeof m.homeScore === 'number' ? `${m.homeScore}–${m.awayScore}` : '—'}
-              </span>
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  </div>
-)}
 
+            {/* Latest Results */}
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Latest Results — Week {currentWeek}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {((results as any)[`week${currentWeek}`] || []).map((m: Match, i: number) =>
+                  m.bye ? (
+                    <div key={i} className="p-3 rounded-md bg-blue-50 border-l-4 border-blue-400">
+                      BYE: {m.bye} {typeof m.byeScore === 'number' ? `(${m.byeScore})` : ''}
+                    </div>
+                  ) : (
+                    <div key={i} className="p-3 rounded-md bg-gray-50 border-l-4 border-gray-300 flex justify-between">
+                      <span>
+                        {m.home} vs {m.away}
+                      </span>
+                      <span className="font-semibold">
+                        {typeof m.homeScore === 'number' ? `${m.homeScore}–${m.awayScore}` : '—'}
+                      </span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
 
             {/* Weekly Report */}
             <div>
