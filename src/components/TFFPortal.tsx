@@ -1,4 +1,6 @@
 import { buildOverall } from '../lib/overall';
+// (If you no longer import CANONICAL_TEAMS here, remove that unused import)
+
 import { CANONICAL_TEAMS } from '../lib/teamCanon';
 import React, { useMemo, useState } from 'react';
 import { Trophy, Users, TrendingUp, Award, FileText, Target, Copy, Share2, Skull } from 'lucide-react';
@@ -62,7 +64,6 @@ export default function TFFPortal() {
 
     // Build Overall (26 teams, 1XI & 2XI separately) from raw results
   const { rows: overallRows26, prevPos: overallPrevPos, unmapped } = buildOverall(results as any, currentWeek);
-
   // Optional: during dev, this tells you if some team names from results.json aren’t mapped yet
   if (process.env.NODE_ENV !== 'production' && unmapped.length) {
     console.warn('[TFF] Unmapped team strings detected:', unmapped);
