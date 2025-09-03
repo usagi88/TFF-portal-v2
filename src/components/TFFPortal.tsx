@@ -356,8 +356,37 @@ const min = scores.length ? Math.min(...scores) : 0;
     {(() => {
       type Row = { team: string; week: number; season: number };
 
-      // 1) Canonical list of ALL teams (expects both 1XI & 2XI present in teams.json)
-      const allTeams: string[] = (teams as any[]).map((t) => String(t.team));
+      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
+      const teamSet = new Set<string>();
+      const addIf = (v?: unknown) => {
+        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
+      };
+
+      // from fixtures
+      weekKeys.forEach((w: number) => {
+        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
+        fx.forEach((f) => {
+          if (f.bye) addIf(f.bye);
+          else {
+            addIf(f.home);
+            addIf(f.away);
+          }
+        });
+      });
+
+      // from results (in case they include teams not in fixtures yet)
+      weekKeys.forEach((w: number) => {
+        const rs = ((results as any)[`week${w}`] || []) as Match[];
+        rs.forEach((m) => {
+          if (m.bye) addIf(m.bye);
+          else {
+            addIf(m.home);
+            addIf(m.away);
+          }
+        });
+      });
+
+      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
 
       // 2) Season points (team-level, no combining)
       const seasonPts = new Map<string, number>();
@@ -393,7 +422,7 @@ const min = scores.length ? Math.min(...scores) : 0;
         }
       );
 
-      // 5) Build rows for ALL teams and sort by season points desc
+      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
       const rows: Row[] = allTeams.map((team) => ({
         team,
         week: weekPts.get(team) ?? 0,
@@ -401,10 +430,8 @@ const min = scores.length ? Math.min(...scores) : 0;
       }));
 
       rows.sort(
-        (
-          a: Row,
-          b: Row
-        ) => (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team)
+        (a: Row, b: Row) =>
+          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
       );
 
       return (
@@ -430,8 +457,7 @@ const min = scores.length ? Math.min(...scores) : 0;
                   <tr
                     key={row.team}
                     className={
-                      'border-b hover:bg-gray-50 ' +
-                      (idx < 6 ? 'bg-yellow-50' : '')
+                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
                     }
                   >
                     <td className="px-3 py-2 font-bold">{now}</td>
