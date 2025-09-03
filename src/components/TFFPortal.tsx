@@ -354,129 +354,174 @@ const min = scores.length ? Math.min(...scores) : 0;
     </h2>
 
     {(() => {
-      type Row = { team: string; week: number; season: number };
+      // ----- Canonical roster (26 teams), from your official list -----
+      // Keep these EXACT; these are the display names used by the portal.
+      const ALL_TEAMS: string[] = [
+        'Time will Tel 1XI',
+        'Time will Tel 2XI',
+        'Second Wirst 2XI',
+        "What's the Wirtz that could happen 1XI",
+        "What's the Wirtz that could happen 2XI",
+        'Lazio FC 1XI',
+        'Lazio FC 2XI',
+        'MOBLANDERSON 1XI',
+        'MOBLANDERSON 2XI',
+        'Porro Ball Defending 1XI',
+        'World Club Chumpions 1XI',
+        'World Club Chumpions 2XI',
+        'Middle Earth FC 1XI',
+        'Middle Earth FC 2XI',
+        'Ruben Murray 2XI',
+        "Pecorino’s 1XI",
+        "Pecorino’s 2XI",
+        "Jimmy's Jokers 1XI",
+        "Jimmy's Jokers 2XI",
+        'Smoke AI 1XI',
+        'Smoke AI 2XI',
+        'Always the Wright One 1XI',
+        'Always the Wright One 2XI',
+        'Hugo First 1XI',
+        'Chicken Cunha 1XI',
+        'Thomas the Frank engine 2XI',
+      ];
 
-      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
-      const teamSet = new Set<string>();
-      const addIf = (v?: unknown) => {
-        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
+      // ----- Normalise/alias Telegraph names (from your doc) to the canonical list -----
+      const norm = (s: string) =>
+        s
+          .replace(/\u2019/g, "'") // curly ’ -> '
+          .replace(/[–—]/g, '-') // en/em dash -> hyphen
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+
+      const ALIASES_ENTRIES: Array<[string, string]> = [
+        // Time will Tel
+        ['1st 11 - time will tel', 'Time will Tel 1XI'],
+        ['2nd 11 - time will tel', 'Time will Tel 2XI'],
+
+        // Second Wirst / Wirtz variants
+        ['2 xi - second wirst', 'Second Wirst 2XI'],
+        ["1xi - what's the wirtz that could happen", "What's the Wirtz that could happen 1XI"],
+        ["2xi - what's the wirtz that could happen", "What's the Wirtz that could happen 2XI"],
+
+        // Lazio FC
+        ['1xi lazio fc', 'Lazio FC 1XI'],
+        ['2xi lazio fc', 'Lazio FC 2XI'],
+
+        // MOBLANDERSON
+        ['1xi - moblanderson', 'MOBLANDERSON 1XI'],
+        ['2xi - moblanderson', 'MOBLANDERSON 2XI'],
+
+        // Porro Ball Defending
+        ['1xi porro ball defending', 'Porro Ball Defending 1XI'],
+
+        // World Club Chumpions
+        ['1st xi world club chumpions', 'World Club Chumpions 1XI'],
+        ['2nd xi world club chumpions', 'World Club Chumpions 2XI'],
+
+        // Middle Earth FC
+        ['1st xi middle earth fc', 'Middle Earth FC 1XI'],
+        ['2nd xi middle earth fc', 'Middle Earth FC 2XI'],
+
+        // Ruben Murray
+        ['2xi - ruben murray', 'Ruben Murray 2XI'],
+
+        // Pecorino’s (map both curly/straight in norm step)
+        ["1xi - pecorino's", "Pecorino’s 1XI"],
+        ["2xi - pecorino's", "Pecorino’s 2XI"],
+
+        // Jimmy's Jokers
+        ["1xi - jimmy's jokers", "Jimmy's Jokers 1XI"],
+        ["2xi - jimmy's jokers", "Jimmy's Jokers 2XI"],
+
+        // Smoke AI
+        ['1xi smoke ai', 'Smoke AI 1XI'],
+        ['2 xi smoke ai', 'Smoke AI 2XI'],
+
+        // Always the Wright One
+        ['1 xi - always the wright one', 'Always the Wright One 1XI'],
+        ['2 xi - always the wright one', 'Always the Wright One 2XI'],
+
+        // Hugo First
+        ['1st xi - hugo first', 'Hugo First 1XI'],
+
+        // Chicken Cunha
+        ['1xi - chicken cunha', 'Chicken Cunha 1XI'],
+
+        // Thomas the Frank engine
+        ['2xi thomas the frank engine', 'Thomas the Frank engine 2XI'],
+      ];
+
+      // Include identity mappings (canonical -> canonical)
+      ALL_TEAMS.forEach((name) => {
+        ALIASES_ENTRIES.push([norm(name), name]);
+      });
+
+      const ALIAS_MAP = new Map<string, string>(ALIASES_ENTRIES);
+
+      const canonicalise = (raw?: string): string | null => {
+        if (!raw || typeof raw !== 'string') return null;
+        const key = norm(raw);
+        // exact alias
+        if (ALIAS_MAP.has(key)) return ALIAS_MAP.get(key)!;
+
+        // soft patterns: convert "name 1 xi", "name - 1st xi", etc., to a best guess… if it matches a canonical team, accept it
+        // Try to coerce common "XI" patterns to the tail " 1XI"/" 2XI"
+        let coerced = key
+          .replace(/\bfirst\s*xi\b|\b1st\s*xi\b|\b1\s*xi\b|\b1st\s*11\b|\bfirst\s*11\b/g, '1xi')
+          .replace(/\bsecond\s*xi\b|\b2nd\s*xi\b|\b2\s*xi\b|\b2nd\s*11\b|\bsecond\s*11\b/g, '2xi')
+          .replace(/\s*-\s*/g, ' ')
+          .trim();
+
+        // move xi to end: "1xi name" -> "name 1xi"
+        coerced = coerced.replace(/^(1xi|2xi)\s+(.*)$/i, (_m, xi, rest) => `${rest} ${xi}`.toLowerCase());
+
+        // re-titlecase and finalise
+        const tryTitle = (s: string) =>
+          s.replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bXi\b/i, 'XI');
+
+        const maybe1 = tryTitle(coerced.replace(/\b1xi\b/i, ' 1XI'));
+        const maybe2 = tryTitle(coerced.replace(/\b2xi\b/i, ' 2XI'));
+
+        const maybe = [maybe1, maybe2];
+        for (const candidate of maybe) {
+          if (ALL_TEAMS.includes(candidate)) return candidate;
+        }
+
+        return null; // unknown label; we’ll ignore it
       };
 
-      // from fixtures
-      weekKeys.forEach((w: number) => {
-        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
-        fx.forEach((f) => {
-          if (f.bye) addIf(f.bye);
-          else {
-            addIf(f.home);
-            addIf(f.away);
-          }
-        });
-      });
+      // ----- Points calculators (team-level, never combine) -----
+      const seasonTotalsUpTo = (week: number): Map<string, number> => {
+        const totals = new Map<string, number>();
+        // start every team at 0 so the table always shows 26
+        ALL_TEAMS.forEach((t) => totals.set(t, 0));
 
-      // from results (in case they include teams not in fixtures yet)
-      weekKeys.forEach((w: number) => {
-        const rs = ((results as any)[`week${w}`] || []) as Match[];
-        rs.forEach((m) => {
-          if (m.bye) addIf(m.bye);
-          else {
-            addIf(m.home);
-            addIf(m.away);
-          }
-        });
-      });
+        for (let w = 1; w <= Math.max(0, week); w++) {
+          const wk = ((results as any)[`week${w}`] || []) as Match[];
 
-      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
-
-      // 2) Season points (team-level, no combining)
-      const seasonPts = new Map<string, number>();
-      allTeams.forEach((t) => seasonPts.set(t, 0));
-      (overallByWeek[currentWeek] || []).forEach(
-        (r: { team: string; points: number }) => {
-          seasonPts.set(r.team, Number(r.points) || 0);
+          wk.forEach((m: Match) => {
+            if (m.bye && typeof m.byeScore === 'number') {
+              const t = canonicalise(m.bye);
+              if (t && totals.has(t)) totals.set(t, (totals.get(t) || 0) + (m.byeScore as number));
+              return;
+            }
+            if (m.home && typeof m.homeScore === 'number') {
+              const t = canonicalise(m.home);
+              if (t && totals.has(t)) totals.set(t, (totals.get(t) || 0) + (m.homeScore as number));
+            }
+            if (m.away && typeof m.awayScore === 'number') {
+              const t = canonicalise(m.away);
+              if (t && totals.has(t)) totals.set(t, (totals.get(t) || 0) + (m.awayScore as number));
+            }
+          });
         }
-      );
+        return totals;
+      };
 
-      // 3) Week points for currentWeek (team-level, includes BYE scores)
-      const weekPts = new Map<string, number>();
-      allTeams.forEach((t) => weekPts.set(t, 0));
-      const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
-      wk.forEach((m: Match) => {
-        if (m.bye && typeof m.byeScore === 'number') {
-          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
-        } else {
-          if (m.home && typeof m.homeScore === 'number') {
-            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
-          }
-          if (m.away && typeof m.awayScore === 'number') {
-            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
-          }
-        }
-      });
-
-      // 4) Previous positions map (team-level)
-      const prevPos = new Map<string, number>();
-      (overallByWeek[currentWeek - 1] || []).forEach(
-        (r: { team: string; points: number }, idx: number) => {
-          prevPos.set(r.team, idx + 1);
-        }
-      );
-
-      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
-      const rows: Row[] = allTeams.map((team) => ({
-        team,
-        week: weekPts.get(team) ?? 0,
-        season: seasonPts.get(team) ?? 0,
-      }));
-
-      rows.sort(
-        (a: Row, b: Row) =>
-          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
-      );
-
-      return (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-3 text-left">Pos</th>
-                <th className="px-3 py-3 text-left">Team</th>
-                <th className="px-2 py-3 text-center">Week Pts</th>
-                <th className="px-2 py-3 text-center">Season Pts</th>
-                <th className="px-2 py-3 text-center">Move</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => {
-                const now = idx + 1;
-                const prev = prevPos.get(row.team) ?? null;
-                const delta = prev ? prev - now : 0;
-                const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
-
-                return (
-                  <tr
-                    key={row.team}
-                    className={
-                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
-                    }
-                  >
-                    <td className="px-3 py-2 font-bold">{now}</td>
-                    <td className="px-3 py-2">{row.team}</td>
-                    <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
-                    <td className="px-2 py-2 text-center font-bold">{row.season}</td>
-                    <td className="px-2 py-2 text-center">
-                      {arrow} {delta !== 0 ? Math.abs(delta) : ''}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      );
-    })()}
-  </div>
-)}
+      const weekTotals = (week: number): Map<string, number> => {
+        const totals = new Map<string, number>();
+        ALL_TEAMS.forEach((t) => totals.set(t, 0));
 
 
         {activeTab === 'fixtures' && (
