@@ -353,27 +353,60 @@ const min = scores.length ? Math.min(...scores) : 0;
       <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
     </h2>
 
-    {/* Build Week Points map for currentWeek (includes BYE scores) */}
     {(() => {
-      const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
-      const weekPtsMap = new Map<string, number>();
+      type Row = { team: string; week: number; season: number };
 
+      // 1) Canonical list of ALL teams (expects both 1XI & 2XI present in teams.json)
+      const allTeams: string[] = (teams as any[]).map((t) => String(t.team));
+
+      // 2) Season points (team-level, no combining)
+      const seasonPts = new Map<string, number>();
+      allTeams.forEach((t) => seasonPts.set(t, 0));
+      (overallByWeek[currentWeek] || []).forEach(
+        (r: { team: string; points: number }) => {
+          seasonPts.set(r.team, Number(r.points) || 0);
+        }
+      );
+
+      // 3) Week points for currentWeek (team-level, includes BYE scores)
+      const weekPts = new Map<string, number>();
+      allTeams.forEach((t) => weekPts.set(t, 0));
+      const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          weekPtsMap.set(m.bye, (weekPtsMap.get(m.bye) || 0) + m.byeScore);
-          return;
-        }
-        if (!m.bye) {
+          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
+        } else {
           if (m.home && typeof m.homeScore === 'number') {
-            weekPtsMap.set(m.home, (weekPtsMap.get(m.home) || 0) + m.homeScore);
+            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
           }
           if (m.away && typeof m.awayScore === 'number') {
-            weekPtsMap.set(m.away, (weekPtsMap.get(m.away) || 0) + m.awayScore);
+            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
           }
         }
       });
 
-      // Render table using overallStandings (which already aggregates 1XI + 2XI season points)
+      // 4) Previous positions map (team-level)
+      const prevPos = new Map<string, number>();
+      (overallByWeek[currentWeek - 1] || []).forEach(
+        (r: { team: string; points: number }, idx: number) => {
+          prevPos.set(r.team, idx + 1);
+        }
+      );
+
+      // 5) Build rows for ALL teams and sort by season points desc
+      const rows: Row[] = allTeams.map((team) => ({
+        team,
+        week: weekPts.get(team) ?? 0,
+        season: seasonPts.get(team) ?? 0,
+      }));
+
+      rows.sort(
+        (
+          a: Row,
+          b: Row
+        ) => (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team)
+      );
+
       return (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -387,27 +420,24 @@ const min = scores.length ? Math.min(...scores) : 0;
               </tr>
             </thead>
             <tbody>
-              {overallStandings.map((row, idx) => {
-                const prevIndex = lastWeekStandings.findIndex((r) => r.team === row.team);
-                const prev = prevIndex === -1 ? null : prevIndex + 1;
+              {rows.map((row, idx) => {
                 const now = idx + 1;
+                const prev = prevPos.get(row.team) ?? null;
                 const delta = prev ? prev - now : 0;
                 const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
-
-                const weekPts = weekPtsMap.get(row.team) ?? 0;
 
                 return (
                   <tr
                     key={row.team}
                     className={
                       'border-b hover:bg-gray-50 ' +
-                      (idx < 6 ? 'bg-yellow-50' : '') // highlight Top 6 (prize spots)
+                      (idx < 6 ? 'bg-yellow-50' : '')
                     }
                   >
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
-                    <td className="px-2 py-2 text-center font-semibold">{weekPts}</td>
-                    <td className="px-2 py-2 text-center font-bold">{row.points}</td>
+                    <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
+                    <td className="px-2 py-2 text-center font-bold">{row.season}</td>
                     <td className="px-2 py-2 text-center">
                       {arrow} {delta !== 0 ? Math.abs(delta) : ''}
                     </td>
@@ -421,6 +451,7 @@ const min = scores.length ? Math.min(...scores) : 0;
     })()}
   </div>
 )}
+
 
 
         {activeTab === 'fixtures' && (
