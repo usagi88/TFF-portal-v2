@@ -1,3 +1,5 @@
+import { buildOverall } from '../lib/overall';
+import { CANONICAL_TEAMS } from '../lib/teamCanon';
 import React, { useMemo, useState } from 'react';
 import { Trophy, Users, TrendingUp, Award, FileText, Target, Copy, Share2, Skull } from 'lucide-react';
 import teams from '../data/teams.json';
