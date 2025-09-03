@@ -356,54 +356,57 @@ const min = scores.length ? Math.min(...scores) : 0;
     {(() => {
       type Row = { team: string; week: number; season: number };
 
-      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
-      const teamSet = new Set<string>();
-      const addIf = (v?: unknown) => {
-        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
+      // --- Gather team names seen anywhere (fixtures + results) ---
+      const seen = new Set<string>();
+      const add = (v?: unknown) => {
+        if (typeof v === 'string') {
+          const s = v.trim();
+          if (s) seen.add(s);
+        }
       };
 
-      // from fixtures
       weekKeys.forEach((w: number) => {
         const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
-        fx.forEach((f) => {
-          if (f.bye) addIf(f.bye);
-          else {
-            addIf(f.home);
-            addIf(f.away);
-          }
-        });
-      });
-
-      // from results (in case they include teams not in fixtures yet)
-      weekKeys.forEach((w: number) => {
+        fx.forEach((f) => (f.bye ? add(f.bye) : (add(f.home), add(f.away))));
         const rs = ((results as any)[`week${w}`] || []) as Match[];
-        rs.forEach((m) => {
-          if (m.bye) addIf(m.bye);
-          else {
-            addIf(m.home);
-            addIf(m.away);
-          }
-        });
+        rs.forEach((m) => (m.bye ? add(m.bye) : (add(m.home), add(m.away))));
       });
 
-      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
+      // --- Ensure BOTH 1XI and 2XI exist for each base name ---
+      const isXI = (name: string) => /\b(1XI|2XI)\b$/i.test(name);
+      const baseOf = (name: string) => name.replace(/\s*\b(1XI|2XI)\b\s*$/i, '').trim();
+      const to1 = (base: string) => `${base} 1XI`;
+      const to2 = (base: string) => `${base} 2XI`;
 
-      // 2) Season points (team-level, no combining)
+      const fullSet = new Set<string>(seen);
+      Array.from(seen).forEach((t) => {
+        if (isXI(t)) {
+          const base = baseOf(t);
+          fullSet.add(to1(base));
+          fullSet.add(to2(base));
+        }
+      });
+
+      // If your data only had 1XI, the above adds the 2XI sibling (and vice-versa)
+      const allTeams: string[] = Array.from(fullSet).sort((a, b) => a.localeCompare(b));
+
+      // --- Season points (team-level, no combining) ---
       const seasonPts = new Map<string, number>();
       allTeams.forEach((t) => seasonPts.set(t, 0));
       (overallByWeek[currentWeek] || []).forEach(
         (r: { team: string; points: number }) => {
+          // only teams actually scored get updated; others stay 0
           seasonPts.set(r.team, Number(r.points) || 0);
         }
       );
 
-      // 3) Week points for currentWeek (team-level, includes BYE scores)
+      // --- Week points for currentWeek (team-level, includes BYE scores) ---
       const weekPts = new Map<string, number>();
       allTeams.forEach((t) => weekPts.set(t, 0));
       const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
+          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + (m.byeScore as number));
         } else {
           if (m.home && typeof m.homeScore === 'number') {
             weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
@@ -414,15 +417,13 @@ const min = scores.length ? Math.min(...scores) : 0;
         }
       });
 
-      // 4) Previous positions map (team-level)
+      // --- Previous positions map (team-level) ---
       const prevPos = new Map<string, number>();
       (overallByWeek[currentWeek - 1] || []).forEach(
-        (r: { team: string; points: number }, idx: number) => {
-          prevPos.set(r.team, idx + 1);
-        }
+        (r: { team: string; points: number }, idx: number) => prevPos.set(r.team, idx + 1)
       );
 
-      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
+      // --- Build and sort rows: Season desc, then Week desc, then Team name ---
       const rows: Row[] = allTeams.map((team) => ({
         team,
         week: weekPts.get(team) ?? 0,
@@ -456,9 +457,7 @@ const min = scores.length ? Math.min(...scores) : 0;
                 return (
                   <tr
                     key={row.team}
-                    className={
-                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
-                    }
+                    className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}
                   >
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
@@ -477,7 +476,6 @@ const min = scores.length ? Math.min(...scores) : 0;
     })()}
   </div>
 )}
-
 
 
         {activeTab === 'fixtures' && (
