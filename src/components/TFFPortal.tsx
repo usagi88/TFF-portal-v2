@@ -356,83 +356,104 @@ const min = scores.length ? Math.min(...scores) : 0;
     {(() => {
       type Row = { team: string; week: number; season: number };
 
-      // --- Gather team names seen anywhere (fixtures + results) ---
-      const seen = new Set<string>();
-      const add = (v?: unknown) => {
+      // ---------- Helpers to detect/normalise 1XI / 2XI ----------
+      const XI_SUFFIX_RE = /\s*(?:1XI|2XI|1st\s*XI|2nd\s*XI|First\s*XI|Second\s*XI|1s|2s|1'?s|2'?s)\s*$/i;
+      const isXI = (name: string) => XI_SUFFIX_RE.test(name);
+      const baseOf = (name: string) => name.replace(XI_SUFFIX_RE, '').trim();
+      const to1 = (base: string) => `${base} 1XI`;
+      const to2 = (base: string) => `${base} 2XI`;
+      const normaliseToStandard = (name: string) => {
+        if (!isXI(name)) return name.trim();
+        const base = baseOf(name);
+        return /\b2/i.test(name) ? to2(base) : to1(base);
+      };
+
+      const addName = (set: Set<string>, v?: unknown) => {
         if (typeof v === 'string') {
-          const s = v.trim();
-          if (s) seen.add(s);
+          const s = normaliseToStandard(v.trim());
+          if (s) set.add(s);
         }
       };
 
+      // ---------- 1) Gather team names from fixtures + results ----------
+      const seen = new Set<string>();
       weekKeys.forEach((w: number) => {
-        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
-        fx.forEach((f) => (f.bye ? add(f.bye) : (add(f.home), add(f.away))));
+        const fx = ((fixtures as any)[`week${w}`] || []) as any[];
+        fx.forEach((f) => (f.bye ? addName(seen, f.bye) : (addName(seen, f.home), addName(seen, f.away))));
         const rs = ((results as any)[`week${w}`] || []) as Match[];
-        rs.forEach((m) => (m.bye ? add(m.bye) : (add(m.home), add(m.away))));
+        rs.forEach((m) => (m.bye ? addName(seen, m.bye) : (addName(seen, m.home), addName(seen, m.away))));
       });
 
-      // --- Ensure BOTH 1XI and 2XI exist for each base name ---
-      const isXI = (name: string) => /\b(1XI|2XI)\b$/i.test(name);
-      const baseOf = (name: string) => name.replace(/\s*\b(1XI|2XI)\b\s*$/i, '').trim();
-      const to1 = (base: string) => `${base} 1XI`;
-      const to2 = (base: string) => `${base} 2XI`;
+      // ---------- 2) Try to pull both squads from teams.json too ----------
+      const CANDIDATE_KEYS = [
+        'team','team1','team2','team_1','team_2','team1XI','team2XI',
+        'firstXI','secondXI','one','two','name1','name2','squad1','squad2'
+      ];
+      ((teams as unknown) as Array<Record<string, any>>).forEach((t) => {
+        CANDIDATE_KEYS.forEach((k) => addName(seen, t?.[k]));
+      });
 
+      // ---------- 3) Ensure both 1XI & 2XI exist for each base ----------
       const fullSet = new Set<string>(seen);
+      const bases = new Set<string>();
       Array.from(seen).forEach((t) => {
-        if (isXI(t)) {
-          const base = baseOf(t);
-          fullSet.add(to1(base));
-          fullSet.add(to2(base));
-        }
+        if (isXI(t)) bases.add(baseOf(t));
+      });
+      // If we only saw 1XI (or only 2XI) for a base, add the missing sibling.
+      bases.forEach((b) => {
+        fullSet.add(to1(b));
+        fullSet.add(to2(b));
       });
 
-      // If your data only had 1XI, the above adds the 2XI sibling (and vice-versa)
-      const allTeams: string[] = Array.from(fullSet).sort((a, b) => a.localeCompare(b));
+      // If we still have exactly 13 items (only one side per base),
+      // promote *every* base we can infer into 1XI+2XI.
+      if (fullSet.size === 13) {
+        const inferredBases = new Set<string>(Array.from(fullSet).map(baseOf));
+        inferredBases.forEach((b) => { fullSet.add(to1(b)); fullSet.add(to2(b)); });
+      }
 
-      // --- Season points (team-level, no combining) ---
+      const allTeams: string[] = Array.from(fullSet).sort((a: string, b: string) => a.localeCompare(b));
+
+      // ---------- 4) Season pts (team-level, never combined) ----------
       const seasonPts = new Map<string, number>();
       allTeams.forEach((t) => seasonPts.set(t, 0));
-      (overallByWeek[currentWeek] || []).forEach(
-        (r: { team: string; points: number }) => {
-          // only teams actually scored get updated; others stay 0
-          seasonPts.set(r.team, Number(r.points) || 0);
-        }
-      );
+      (overallByWeek[currentWeek] || []).forEach((r: { team: string; points: number }) => {
+        const teamStd = normaliseToStandard(r.team);
+        seasonPts.set(teamStd, Number(r.points) || 0);
+      });
 
-      // --- Week points for currentWeek (team-level, includes BYE scores) ---
+      // ---------- 5) Week pts for currentWeek (team-level) ----------
       const weekPts = new Map<string, number>();
       allTeams.forEach((t) => weekPts.set(t, 0));
       const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + (m.byeScore as number));
+          weekPts.set(normaliseToStandard(m.bye), (weekPts.get(normaliseToStandard(m.bye)) || 0) + (m.byeScore as number));
         } else {
           if (m.home && typeof m.homeScore === 'number') {
-            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
+            weekPts.set(normaliseToStandard(m.home), (weekPts.get(normaliseToStandard(m.home)) || 0) + (m.homeScore as number));
           }
           if (m.away && typeof m.awayScore === 'number') {
-            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
+            weekPts.set(normaliseToStandard(m.away), (weekPts.get(normaliseToStandard(m.away)) || 0) + (m.awayScore as number));
           }
         }
       });
 
-      // --- Previous positions map (team-level) ---
+      // ---------- 6) Previous positions (team-level) ----------
       const prevPos = new Map<string, number>();
-      (overallByWeek[currentWeek - 1] || []).forEach(
-        (r: { team: string; points: number }, idx: number) => prevPos.set(r.team, idx + 1)
-      );
+      (overallByWeek[currentWeek - 1] || []).forEach((r: { team: string; points: number }, idx: number) => {
+        prevPos.set(normaliseToStandard(r.team), idx + 1);
+      });
 
-      // --- Build and sort rows: Season desc, then Week desc, then Team name ---
+      // ---------- 7) Build & sort rows ----------
       const rows: Row[] = allTeams.map((team) => ({
         team,
         week: weekPts.get(team) ?? 0,
         season: seasonPts.get(team) ?? 0,
       }));
 
-      rows.sort(
-        (a: Row, b: Row) =>
-          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
+      rows.sort((a: Row, b: Row) =>
+        (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team)
       );
 
       return (
@@ -455,10 +476,7 @@ const min = scores.length ? Math.min(...scores) : 0;
                 const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
 
                 return (
-                  <tr
-                    key={row.team}
-                    className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}
-                  >
+                  <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}>
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
                     <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
@@ -476,6 +494,7 @@ const min = scores.length ? Math.min(...scores) : 0;
     })()}
   </div>
 )}
+
 
 
         {activeTab === 'fixtures' && (
