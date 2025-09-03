@@ -354,84 +354,152 @@ const min = scores.length ? Math.min(...scores) : 0;
     </h2>
 
     {(() => {
-      type Row = { team: string; week: number; season: number };
+      // ---- Canonical list of 26 teams (from your doc; each is unique and stands alone) ----
+      // Display labels (never combine): “<Team> <XI>”
+      const CANONICAL: string[] = [
+        'Time will Tel 1XI',
+        'Time will Tel 2XI',
+        'Second Wirst 2XI',
+        "What's the Wirtz that could happen 1XI",
+        "What's the Wirtz that could happen 2XI",
+        'Lazio FC 1XI',
+        'Lazio FC 2XI',
+        'MOBLANDERSON 1XI',
+        'MOBLANDERSON 2XI',
+        'Porro Ball Defending 1XI',
+        'World Club Chumpions 1XI',
+        'World Club Chumpions 2XI',
+        'Middle Earth FC 1XI',
+        'Middle Earth FC 2XI',
+        'Ruben Murray 2XI',
+        "Pecorino’s 1XI",
+        "Pecorino’s 2XI",
+        "Jimmy's Jokers 1XI",
+        "Jimmy's Jokers 2XI",
+        'Smoke AI 1XI',
+        'Smoke AI 2XI',
+        'Always the Wright One 1XI',
+        'Always the Wright One 2XI',
+        'Hugo First 1XI',
+        'Chicken Cunha 1XI',
+        'Thomas the Frank engine 2XI',
+      ];
 
-      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
-      const teamSet = new Set<string>();
-      const addIf = (v?: unknown) => {
-        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
+      // ---- Helpers: normalise various platform strings to our canonical labels ----
+      const clean = (s: string) =>
+        s
+          .toLowerCase()
+          .replace(/[’‘]/g, "'")      // smart quotes -> straight
+          .replace(/\u2013|\u2014/g, '-') // en/em dash -> hyphen
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      // Build a lookup of many synonyms -> canonical
+      const xiSynonyms = (xi: '1XI' | '2XI') =>
+        xi === '1XI'
+          ? ['1xi', '1 xi', '1st xi', '1st 11', 'first xi', '1 s', "1's"]
+          : ['2xi', '2 xi', '2nd xi', '2nd 11', 'second xi', '2 s', "2's"];
+
+      const makeSynonyms = (team: string, xi: '1XI' | '2XI') => {
+        const base = team;
+        const x = xiSynonyms(xi);
+        const withHyph = x.map((p) => `${p} - ${base}`);
+        const noHyph = x.map((p) => `${p} ${base}`);
+        const suffix = x.map((p) => `${base} ${p}`);
+        return [ ...withHyph, ...noHyph, ...suffix ];
       };
 
-      // from fixtures
-      weekKeys.forEach((w: number) => {
-        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
-        fx.forEach((f) => {
-          if (f.bye) addIf(f.bye);
-          else {
-            addIf(f.home);
-            addIf(f.away);
-          }
-        });
+      // Precompute synonym -> canonical map
+      const synToCanonical = new Map<string, string>();
+      const add = (k: string, v: string) => synToCanonical.set(clean(k), v);
+
+      // Also add the canonical labels themselves as keys
+      CANONICAL.forEach((label) => add(label, label));
+
+      // Add rich synonym sets based on common URL/title variants from your sheet
+      // e.g. "1XI - MOBLANDERSON", "1st XI World Club Chumpions", "2nd 11 - Time will Tel", etc.
+      const addTeam = (team: string, xi: '1XI' | '2XI') => {
+        const label = `${team} ${xi}`;
+        const syns = makeSynonyms(team, xi);
+        syns.forEach((s) => add(s, label));
+        // A couple of extra ultra-common patterns
+        add(`${xi} - ${team}`, label);  // "1XI - Team"
+        add(`${xi} ${team}`, label);    // "1XI Team"
+        add(`${team} - ${xi}`, label);  // "Team - 1XI"
+        add(`${team} ${xi}`, label);    // "Team 1XI"
+      };
+
+      // Fill all 26
+      [
+        ['Time will Tel', '1XI'], ['Time will Tel', '2XI'],
+        ['Second Wirst', '2XI'],
+        ["What's the Wirtz that could happen", '1XI'],
+        ["What's the Wirtz that could happen", '2XI'],
+        ['Lazio FC', '1XI'], ['Lazio FC', '2XI'],
+        ['MOBLANDERSON', '1XI'], ['MOBLANDERSON', '2XI'],
+        ['Porro Ball Defending', '1XI'],
+        ['World Club Chumpions', '1XI'], ['World Club Chumpions', '2XI'],
+        ['Middle Earth FC', '1XI'], ['Middle Earth FC', '2XI'],
+        ['Ruben Murray', '2XI'],
+        ["Pecorino’s", '1XI'], ["Pecorino’s", '2XI'],
+        ["Jimmy's Jokers", '1XI'], ["Jimmy's Jokers", '2XI'],
+        ['Smoke AI', '1XI'], ['Smoke AI', '2XI'],
+        ['Always the Wright One', '1XI'], ['Always the Wright One', '2XI'],
+        ['Hugo First', '1XI'],
+        ['Chicken Cunha', '1XI'],
+        ['Thomas the Frank engine', '2XI'],
+      ].forEach(([t, xi]) => addTeam(t as string, xi as '1XI' | '2XI'));
+
+      const toCanonical = (raw: string): string | null => synToCanonical.get(clean(raw)) ?? null;
+
+      // ---- Build points maps for exactly our 26 labels ----
+      const seasonPts = new Map<string, number>(CANONICAL.map((n) => [n, 0]));
+      const weekPts = new Map<string, number>(CANONICAL.map((n) => [n, 0]));
+
+      // Season totals from your computed overallByWeek[currentWeek]
+      (overallByWeek[currentWeek] || []).forEach((r: { team: string; points: number }) => {
+        const canon = toCanonical(r.team);
+        if (canon) seasonPts.set(canon, Number(r.points) || 0);
       });
 
-      // from results (in case they include teams not in fixtures yet)
-      weekKeys.forEach((w: number) => {
-        const rs = ((results as any)[`week${w}`] || []) as Match[];
-        rs.forEach((m) => {
-          if (m.bye) addIf(m.bye);
-          else {
-            addIf(m.home);
-            addIf(m.away);
-          }
-        });
-      });
-
-      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
-
-      // 2) Season points (team-level, no combining)
-      const seasonPts = new Map<string, number>();
-      allTeams.forEach((t) => seasonPts.set(t, 0));
-      (overallByWeek[currentWeek] || []).forEach(
-        (r: { team: string; points: number }) => {
-          seasonPts.set(r.team, Number(r.points) || 0);
-        }
-      );
-
-      // 3) Week points for currentWeek (team-level, includes BYE scores)
-      const weekPts = new Map<string, number>();
-      allTeams.forEach((t) => weekPts.set(t, 0));
+      // Current-week points (inc. BYE scores)
       const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
+          const canon = toCanonical(m.bye);
+          if (canon) weekPts.set(canon, (weekPts.get(canon) || 0) + m.byeScore);
         } else {
           if (m.home && typeof m.homeScore === 'number') {
-            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
+            const canonH = toCanonical(m.home);
+            if (canonH) weekPts.set(canonH, (weekPts.get(canonH) || 0) + m.homeScore);
           }
           if (m.away && typeof m.awayScore === 'number') {
-            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
+            const canonA = toCanonical(m.away);
+            if (canonA) weekPts.set(canonA, (weekPts.get(canonA) || 0) + m.awayScore);
           }
         }
       });
 
-      // 4) Previous positions map (team-level)
+      // Previous positions (for Move arrow) — map via canonical too
       const prevPos = new Map<string, number>();
       (overallByWeek[currentWeek - 1] || []).forEach(
         (r: { team: string; points: number }, idx: number) => {
-          prevPos.set(r.team, idx + 1);
+          const canon = toCanonical(r.team);
+          if (canon) prevPos.set(canon, idx + 1);
         }
       );
 
-      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
-      const rows: Row[] = allTeams.map((team) => ({
-        team,
-        week: weekPts.get(team) ?? 0,
-        season: seasonPts.get(team) ?? 0,
+      // Rows = exactly our 26 labels
+      type Row = { team: string; week: number; season: number };
+      const rows: Row[] = CANONICAL.map((name) => ({
+        team: name,
+        week: weekPts.get(name) ?? 0,
+        season: seasonPts.get(name) ?? 0,
       }));
 
-      rows.sort(
-        (a: Row, b: Row) =>
-          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
+      // Sort by Season desc, then Week desc, then alpha
+      rows.sort((a, b) =>
+        b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
       );
 
       return (
@@ -452,13 +520,10 @@ const min = scores.length ? Math.min(...scores) : 0;
                 const prev = prevPos.get(row.team) ?? null;
                 const delta = prev ? prev - now : 0;
                 const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
-
                 return (
                   <tr
                     key={row.team}
-                    className={
-                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
-                    }
+                    className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}
                   >
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
@@ -477,7 +542,6 @@ const min = scores.length ? Math.min(...scores) : 0;
     })()}
   </div>
 )}
-
 
 
         {activeTab === 'fixtures' && (
