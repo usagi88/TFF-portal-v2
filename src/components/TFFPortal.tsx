@@ -347,134 +347,92 @@ const min = scores.length ? Math.min(...scores) : 0;
           </div>
         )}
 
-       {activeTab === 'overall' && (
+{activeTab === 'overall' && (
   <div className="bg-white rounded-xl shadow-lg p-6">
     <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
       <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
     </h2>
 
     {(() => {
-      // ── Canonical list of EXACT team labels to show (26) ──
-      const CANONICAL: string[] = [
-        'Time will Tel 1XI','Time will Tel 2XI',
-        'Second Wirst 2XI',
-        "What's the Wirtz that could happen 1XI","What's the Wirtz that could happen 2XI",
-        'Lazio FC 1XI','Lazio FC 2XI',
-        'MOBLANDERSON 1XI','MOBLANDERSON 2XI',
-        'Porro Ball Defending 1XI',
-        'World Club Chumpions 1XI','World Club Chumpions 2XI',
-        'Middle Earth FC 1XI','Middle Earth FC 2XI',
-        'Ruben Murray 2XI',
-        "Pecorino’s 1XI","Pecorino’s 2XI",
-        "Jimmy's Jokers 1XI","Jimmy's Jokers 2XI",
-        'Smoke AI 1XI','Smoke AI 2XI',
-        'Always the Wright One 1XI','Always the Wright One 2XI',
-        'Hugo First 1XI',
-        'Chicken Cunha 1XI',
-        'Thomas the Frank engine 2XI',
-      ];
+      type Row = { team: string; week: number; season: number };
 
-      // ── Normaliser to map raw names in results → canonical labels ──
-      const clean = (s: string) =>
-        s
-          .toLowerCase()
-          .replace(/[’‘]/g, "'")
-          .replace(/\u2013|\u2014/g, "-")
-          .replace(/\s+/g, " ")
-          .trim();
-
-      const XI_RE = /\b(1xi|2xi|1st xi|2nd xi|first xi|second xi|1st 11|2nd 11|1s|2s|1's|2's)\b/i;
-      const toXi = (raw: string): '1XI' | '2XI' | null => {
-        const r = clean(raw);
-        if (/\b2(xi|nd|s|'s| 11)?\b/.test(r)) return '2XI';
-        if (/\b1(xi|st|s|'s| 11)?\b/.test(r)) return '1XI';
-        return null;
+      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
+      const teamSet = new Set<string>();
+      const addIf = (v?: unknown) => {
+        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
       };
-      const base = (label: string) => label.replace(/\s+(1XI|2XI)$/i, '').trim();
 
-      const canonicalClean = CANONICAL.map((c) => ({ c, k: clean(c), b: clean(base(c)), xi: c.endsWith('2XI') ? '2XI' : '1XI' as '1XI'|'2XI' }));
-
-      const toCanonical = (raw: string): string | null => {
-        const r = clean(raw);
-        // 1) direct match
-        const direct = canonicalClean.find(x => x.k === r);
-        if (direct) return direct.c;
-
-        // 2) try "<base> <xi>" with flexible XI tokens anywhere
-        const xi = toXi(raw);
-        const candidates = xi ? canonicalClean.filter(x => x.xi === xi) : canonicalClean;
-        // choose the candidate whose base appears in the raw string (best length match)
-        let best: {c:string,b:string} | null = null;
-        candidates.forEach(x => {
-          if (r.includes(x.b) && (!best || x.b.length > best.b.length)) best = { c: x.c, b: x.b };
+      // from fixtures
+      weekKeys.forEach((w: number) => {
+        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
+        fx.forEach((f) => {
+          if (f.bye) addIf(f.bye);
+          else {
+            addIf(f.home);
+            addIf(f.away);
+          }
         });
-        return best?.c ?? null;
-      };
+      });
 
-      // ── Build season + week points from results (never combine teams) ──
-      type NumMap = Map<string, number>;
-      const makeZeroMap = (keys: string[]): NumMap => new Map(keys.map(k => [k, 0]));
+      // from results (in case they include teams not in fixtures yet)
+      weekKeys.forEach((w: number) => {
+        const rs = ((results as any)[`week${w}`] || []) as Match[];
+        rs.forEach((m) => {
+          if (m.bye) addIf(m.bye);
+          else {
+            addIf(m.home);
+            addIf(m.away);
+          }
+        });
+      });
 
-      const accumulateUpToWeek = (weekMax: number): NumMap => {
-        const totals = makeZeroMap(CANONICAL);
-        for (let w = 1; w <= weekMax; w++) {
-          const wk = ((results as any)[`week${w}`] || []) as Match[];
-          wk.forEach((m: Match) => {
-            if (m.bye && typeof m.byeScore === 'number') {
-              const t = m.bye ? toCanonical(m.bye) : null;
-              if (t) totals.set(t, (totals.get(t) || 0) + (m.byeScore as number));
-              return;
-            }
-            if (m.home && typeof m.homeScore === 'number') {
-              const t = toCanonical(m.home);
-              if (t) totals.set(t, (totals.get(t) || 0) + (m.homeScore as number));
-            }
-            if (m.away && typeof m.awayScore === 'number') {
-              const t = toCanonical(m.away);
-              if (t) totals.set(t, (totals.get(t) || 0) + (m.awayScore as number));
-            }
-          });
+      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
+
+      // 2) Season points (team-level, no combining)
+      const seasonPts = new Map<string, number>();
+      allTeams.forEach((t) => seasonPts.set(t, 0));
+      (overallByWeek[currentWeek] || []).forEach(
+        (r: { team: string; points: number }) => {
+          seasonPts.set(r.team, Number(r.points) || 0);
         }
-        return totals;
-      };
+      );
 
-      const seasonPts = accumulateUpToWeek(currentWeek);          // totals up to current week
-      const prevSeasonPts = currentWeek > 1 ? accumulateUpToWeek(currentWeek - 1) : makeZeroMap(CANONICAL);
-
-      // Current week only
-      const weekPts = makeZeroMap(CANONICAL);
+      // 3) Week points for currentWeek (team-level, includes BYE scores)
+      const weekPts = new Map<string, number>();
+      allTeams.forEach((t) => weekPts.set(t, 0));
       const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          const t = m.bye ? toCanonical(m.bye) : null;
-          if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.byeScore as number));
+          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
         } else {
           if (m.home && typeof m.homeScore === 'number') {
-            const t = toCanonical(m.home);
-            if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.homeScore as number));
+            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
           }
           if (m.away && typeof m.awayScore === 'number') {
-            const t = toCanonical(m.away);
-            if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.awayScore as number));
+            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
           }
         }
       });
 
-      // ── Compute previous positions for Move (rank prevSeasonPts) ──
-      const prevSorted = [...CANONICAL]
-        .map(team => ({ team, pts: prevSeasonPts.get(team) ?? 0, wk: 0 }))
-        .sort((a, b) => (b.pts - a.pts) || a.team.localeCompare(b.team));
+      // 4) Previous positions map (team-level)
       const prevPos = new Map<string, number>();
-      prevSorted.forEach((r, i) => prevPos.set(r.team, i + 1));
+      (overallByWeek[currentWeek - 1] || []).forEach(
+        (r: { team: string; points: number }, idx: number) => {
+          prevPos.set(r.team, idx + 1);
+        }
+      );
 
-      // ── Build rows and sort by Season desc, Week desc, then name ──
-      type Row = { team: string; week: number; season: number };
-      const rows: Row[] = CANONICAL.map((team) => ({
+      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
+      const rows: Row[] = allTeams.map((team) => ({
         team,
         week: weekPts.get(team) ?? 0,
         season: seasonPts.get(team) ?? 0,
       }));
-      rows.sort((a: Row, b: Row) => (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team));
+
+      rows.sort(
+        (a: Row, b: Row) =>
+          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
+      );
 
       return (
         <div className="overflow-x-auto">
@@ -494,8 +452,14 @@ const min = scores.length ? Math.min(...scores) : 0;
                 const prev = prevPos.get(row.team) ?? null;
                 const delta = prev ? prev - now : 0;
                 const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+
                 return (
-                  <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}>
+                  <tr
+                    key={row.team}
+                    className={
+                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
+                    }
+                  >
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
                     <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
@@ -513,6 +477,7 @@ const min = scores.length ? Math.min(...scores) : 0;
     })()}
   </div>
 )}
+
 
 
         {activeTab === 'fixtures' && (
