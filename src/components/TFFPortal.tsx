@@ -364,107 +364,29 @@ const min = scores.length ? Math.min(...scores) : 0;
       <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
     </h2>
 
-    {(() => {
-      type Row = { team: string; week: number; season: number };
-
-      // 1) Build canonical list of ALL teams (from fixtures + results, all weeks)
-      const teamSet = new Set<string>();
-      const addIf = (v?: unknown) => {
-        if (typeof v === 'string' && v.trim()) teamSet.add(v.trim());
-      };
-
-      // from fixtures
-      weekKeys.forEach((w: number) => {
-        const fx = ((fixtures as any)[`week${w}`] || []) as Array<any>;
-        fx.forEach((f) => {
-          if (f.bye) addIf(f.bye);
-          else {
-            addIf(f.home);
-            addIf(f.away);
-          }
-        });
-      });
-
-      // from results (in case they include teams not in fixtures yet)
-      weekKeys.forEach((w: number) => {
-        const rs = ((results as any)[`week${w}`] || []) as Match[];
-        rs.forEach((m) => {
-          if (m.bye) addIf(m.bye);
-          else {
-            addIf(m.home);
-            addIf(m.away);
-          }
-        });
-      });
-
-      const allTeams: string[] = Array.from(teamSet).sort((a: string, b: string) => a.localeCompare(b));
-
-      // 2) Season points (team-level, no combining)
-      const seasonPts = new Map<string, number>();
-      allTeams.forEach((t) => seasonPts.set(t, 0));
-      (overallByWeek[currentWeek] || []).forEach(
-        (r: { team: string; points: number }) => {
-          seasonPts.set(r.team, Number(r.points) || 0);
-        }
-      );
-
-      // 3) Week points for currentWeek (team-level, includes BYE scores)
-      const weekPts = new Map<string, number>();
-      allTeams.forEach((t) => weekPts.set(t, 0));
-      const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
-      wk.forEach((m: Match) => {
-        if (m.bye && typeof m.byeScore === 'number') {
-          weekPts.set(m.bye, (weekPts.get(m.bye) || 0) + m.byeScore);
-        } else {
-          if (m.home && typeof m.homeScore === 'number') {
-            weekPts.set(m.home, (weekPts.get(m.home) || 0) + (m.homeScore as number));
-          }
-          if (m.away && typeof m.awayScore === 'number') {
-            weekPts.set(m.away, (weekPts.get(m.away) || 0) + (m.awayScore as number));
-          }
-        }
-      });
-
-      // 4) Previous positions map (team-level)
-      const prevPos = new Map<string, number>();
-      (overallByWeek[currentWeek - 1] || []).forEach(
-        (r: { team: string; points: number }, idx: number) => {
-          prevPos.set(r.team, idx + 1);
-        }
-      );
-
-      // 5) Build rows for ALL teams and sort by season desc, then week desc, then name
-      const rows: Row[] = allTeams.map((team) => ({
-        team,
-        week: weekPts.get(team) ?? 0,
-        season: seasonPts.get(team) ?? 0,
-      }));
-
-      rows.sort(
-        (a: Row, b: Row) =>
-          b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
-      );
-
-      return (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-3 text-left">Pos</th>
-                <th className="px-3 py-3 text-left">Team</th>
-                <th className="px-2 py-3 text-center">Week Pts</th>
-                <th className="px-2 py-3 text-center">Season Pts</th>
-                <th className="px-2 py-3 text-center">Move</th>
-              </tr>
-            </thead>
-            <tbody>
-                        {overallRows26.map((row, idx) => {
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-3 py-3 text-left">Pos</th>
+            <th className="px-3 py-3 text-left">Team</th>
+            <th className="px-2 py-3 text-center">Week Pts</th>
+            <th className="px-2 py-3 text-center">Season Pts</th>
+            <th className="px-2 py-3 text-center">Move</th>
+          </tr>
+        </thead>
+        <tbody>
+          {overallRows26.map((row, idx) => {
             const now = idx + 1;
             const prev = overallPrevPos.get(row.team) ?? null;
             const delta = prev ? prev - now : 0;
             const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+
             return (
-              <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}>
+              <tr
+                key={row.team}
+                className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}
+              >
                 <td className="px-3 py-2 font-bold">{now}</td>
                 <td className="px-3 py-2">{row.team}</td>
                 <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
@@ -475,9 +397,11 @@ const min = scores.length ? Math.min(...scores) : 0;
               </tr>
             );
           })}
-
-
-
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
         {activeTab === 'fixtures' && (
   <div className="bg-white rounded-xl shadow-lg p-6">
