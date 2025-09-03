@@ -60,6 +60,15 @@ export default function TFFPortal() {
 
   const currentWeek = (meta as any).currentWeek ?? 1;
 
+    // Build Overall (26 teams, 1XI & 2XI separately) from raw results
+  const { rows: overallRows26, prevPos: overallPrevPos, unmapped } = buildOverall(results as any, currentWeek);
+
+  // Optional: during dev, this tells you if some team names from results.json aren’t mapped yet
+  if (process.env.NODE_ENV !== 'production' && unmapped.length) {
+    console.warn('[TFF] Unmapped team strings detected:', unmapped);
+  }
+
+
   // ---------- Chumpions standings (1XI only; BYE = +1pt) ----------
   const chumpionsTeamNames = new Set((teams as any[]).map((t) => t.team));
 
@@ -449,36 +458,24 @@ const min = scores.length ? Math.min(...scores) : 0;
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => {
-                const now = idx + 1;
-                const prev = prevPos.get(row.team) ?? null;
-                const delta = prev ? prev - now : 0;
-                const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+                        {overallRows26.map((row, idx) => {
+            const now = idx + 1;
+            const prev = overallPrevPos.get(row.team) ?? null;
+            const delta = prev ? prev - now : 0;
+            const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+            return (
+              <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}>
+                <td className="px-3 py-2 font-bold">{now}</td>
+                <td className="px-3 py-2">{row.team}</td>
+                <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
+                <td className="px-2 py-2 text-center font-bold">{row.season}</td>
+                <td className="px-2 py-2 text-center">
+                  {arrow} {delta !== 0 ? Math.abs(delta) : ''}
+                </td>
+              </tr>
+            );
+          })}
 
-                return (
-                  <tr
-                    key={row.team}
-                    className={
-                      'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')
-                    }
-                  >
-                    <td className="px-3 py-2 font-bold">{now}</td>
-                    <td className="px-3 py-2">{row.team}</td>
-                    <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
-                    <td className="px-2 py-2 text-center font-bold">{row.season}</td>
-                    <td className="px-2 py-2 text-center">
-                      {arrow} {delta !== 0 ? Math.abs(delta) : ''}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      );
-    })()}
-  </div>
-)}
 
 
 
