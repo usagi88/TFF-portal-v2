@@ -11,6 +11,9 @@ import meta from '../data/meta.json';
 import roll from '../data/rollofhonour.json';
 import UploadResults from './UploadResults';
 
+// Debug flag: visit the site with ?debug=1 to show unmapped names panel
+const debugEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
+
 type Match = {
   home?: string;
   away?: string;
@@ -400,6 +403,43 @@ const min = scores.length ? Math.min(...scores) : 0;
           })}
         </tbody>
       </table>
+{debugEnabled && (
+  <div className="mt-6 p-4 rounded-lg border bg-yellow-50 text-sm">
+    <div className="font-semibold mb-2">DEBUG — Unmapped team strings (add to TEAM_ALIAS_MAP in src/lib/teamCanon.ts):</div>
+    {unmapped.length === 0 ? (
+      <div>✅ No unmapped names detected.</div>
+    ) : (
+      <ul className="list-disc pl-6">
+        {unmapped.map((s, i) => (
+          <li key={i} className="font-mono break-all">{s}</li>
+        ))}
+      </ul>
+    )}
+
+    <div className="mt-4">
+      <div className="font-semibold">Coverage snapshot:</div>
+      <ul className="list-disc pl-6">
+        <li>
+          Teams with <span className="font-semibold">non-zero Season Pts</span>:{' '}
+          {overallRows26.filter(r => r.season > 0).length} / 26
+        </li>
+        <li>
+          Teams with <span className="font-semibold">non-zero Week Pts</span> (Week {currentWeek}):{' '}
+          {overallRows26.filter(r => r.week > 0).length} / 26
+        </li>
+        <li>
+          2XI with non-zero Season Pts:{' '}
+          {overallRows26.filter(r => / 2XI$/.test(r.team) && r.season > 0).length}
+        </li>
+        <li>
+          1XI with non-zero Season Pts:{' '}
+          {overallRows26.filter(r => / 1XI$/.test(r.team) && r.season > 0).length}
+        </li>
+      </ul>
+    </div>
+  </div>
+)}
+
     </div>
   </div>
 )}
