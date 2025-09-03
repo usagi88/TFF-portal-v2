@@ -347,108 +347,237 @@ const min = scores.length ? Math.min(...scores) : 0;
           </div>
         )}
 
-        {activeTab === 'overall' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-              <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-3 text-left">Pos</th>
-                    <th className="px-3 py-3 text-left">Team</th>
-                    <th className="px-2 py-3 text-center">Season Points</th>
-                    <th className="px-2 py-3 text-center">Move</th>
+{activeTab === 'overall' && (
+  <div className="bg-white rounded-xl shadow-lg p-6">
+    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+      <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
+    </h2>
+
+    {/* Build Week Points map for currentWeek (includes BYE scores) */}
+    {(() => {
+      const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
+      const weekPtsMap = new Map<string, number>();
+
+      wk.forEach((m: Match) => {
+        if (m.bye && typeof m.byeScore === 'number') {
+          weekPtsMap.set(m.bye, (weekPtsMap.get(m.bye) || 0) + m.byeScore);
+          return;
+        }
+        if (!m.bye) {
+          if (m.home && typeof m.homeScore === 'number') {
+            weekPtsMap.set(m.home, (weekPtsMap.get(m.home) || 0) + m.homeScore);
+          }
+          if (m.away && typeof m.awayScore === 'number') {
+            weekPtsMap.set(m.away, (weekPtsMap.get(m.away) || 0) + m.awayScore);
+          }
+        }
+      });
+
+      // Render table using overallStandings (which already aggregates 1XI + 2XI season points)
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-3 text-left">Pos</th>
+                <th className="px-3 py-3 text-left">Team</th>
+                <th className="px-2 py-3 text-center">Week Pts</th>
+                <th className="px-2 py-3 text-center">Season Pts</th>
+                <th className="px-2 py-3 text-center">Move</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overallStandings.map((row, idx) => {
+                const prevIndex = lastWeekStandings.findIndex((r) => r.team === row.team);
+                const prev = prevIndex === -1 ? null : prevIndex + 1;
+                const now = idx + 1;
+                const delta = prev ? prev - now : 0;
+                const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
+
+                const weekPts = weekPtsMap.get(row.team) ?? 0;
+
+                return (
+                  <tr
+                    key={row.team}
+                    className={
+                      'border-b hover:bg-gray-50 ' +
+                      (idx < 6 ? 'bg-yellow-50' : '') // highlight Top 6 (prize spots)
+                    }
+                  >
+                    <td className="px-3 py-2 font-bold">{now}</td>
+                    <td className="px-3 py-2">{row.team}</td>
+                    <td className="px-2 py-2 text-center font-semibold">{weekPts}</td>
+                    <td className="px-2 py-2 text-center font-bold">{row.points}</td>
+                    <td className="px-2 py-2 text-center">
+                      {arrow} {delta !== 0 ? Math.abs(delta) : ''}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {overallStandings.map((row, idx) => {
-                    const prevIndex = lastWeekStandings.findIndex((r) => r.team === row.team);
-                    const prev = prevIndex === -1 ? null : prevIndex + 1;
-                    const now = idx + 1;
-                    const delta = prev ? prev - now : 0;
-                    const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
-                    return (
-                      <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 3 ? 'bg-yellow-50' : '')}>
-                        <td className="px-3 py-2 font-bold">{now}</td>
-                        <td className="px-3 py-2">{row.team}</td>
-                        <td className="px-2 py-2 text-center font-bold">{row.points}</td>
-                        <td className="px-2 py-2 text-center">
-                          {arrow} {delta !== 0 ? Math.abs(delta) : ''}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    })()}
+  </div>
+)}
+
 
         {activeTab === 'fixtures' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-              <Target className="text-green-600" size={28} /> Fixtures
-            </h2>
-            <div className="flex items-center gap-3 mb-4">
-              <label className="text-sm font-medium text-gray-600">Week:</label>
-              <select
-                value={fixtureWeek}
-                onChange={(e) => setFixtureWeek(parseInt(e.target.value))}
-                className="border rounded-md px-3 py-2 text-sm"
-              >
-                {weekKeys.map((w) => (
-                  <option key={w} value={w}>
-                    Week {w}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(buildShareText(fixtureWeek));
-                    setCopied('copied');
-                    setTimeout(() => setCopied(null), 1600);
-                  } catch {
-                    setCopied('error');
-                    setTimeout(() => setCopied(null), 1600);
-                  }
-                }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-gray-800 text-white text-sm hover:bg-gray-700"
-              >
-                <Copy size={16} /> {copied === 'copied' ? 'Copied!' : 'Copy'}
-              </button>
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(buildShareText(fixtureWeek))}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-green-600 text-white text-sm hover:bg-green-700"
-              >
-                <Share2 size={16} /> Share to WhatsApp
-              </a>
-            </div>
+  <div className="bg-white rounded-xl shadow-lg p-6">
+    <h2 className="text-2xl font-bold mb-2 flex items-center gap-3">
+      <Target className="text-green-600" size={28} /> Fixtures
+    </h2>
+
+    {/* Week label */}
+    <div className="mb-4">
+      <span className="inline-block rounded-full bg-green-100 text-green-800 text-xs font-semibold px-3 py-1">
+        Week {fixtureWeek}
+      </span>
+      {currentWeek !== fixtureWeek && (
+        <span className="ml-2 text-xs text-gray-500">(Current week: {currentWeek})</span>
+      )}
+    </div>
+
+    {/* Controls */}
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      <label className="text-sm font-medium text-gray-600">Week:</label>
+      <select
+        value={fixtureWeek}
+        onChange={(e) => setFixtureWeek(parseInt(e.target.value))}
+        className="border rounded-md px-3 py-2 text-sm"
+      >
+        {weekKeys.map((w: number) => (
+          <option key={w} value={w}>
+            Week {w}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(buildShareText(fixtureWeek));
+            setCopied('copied');
+            setTimeout(() => setCopied(null), 1600);
+          } catch {
+            setCopied('error');
+            setTimeout(() => setCopied(null), 1600);
+          }
+        }}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-gray-800 text-white text-sm hover:bg-gray-700"
+      >
+        <Copy size={16} /> {copied === 'copied' ? 'Copied!' : 'Copy'}
+      </button>
+
+      <a
+        href={`https://wa.me/?text=${encodeURIComponent(buildShareText(fixtureWeek))}`}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-green-600 text-white text-sm hover:bg-green-700"
+      >
+        <Share2 size={16} /> Share to WhatsApp
+      </a>
+    </div>
+
+    {(() => {
+      // Build BYE weekly points map for the selected week
+      const byePts = new Map<string, number>();
+      const weekResults = ((results as any)[`week${fixtureWeek}`] || []) as Match[];
+      weekResults.forEach((m: Match) => {
+        if (m.bye && typeof m.byeScore === 'number') {
+          byePts.set(m.bye, m.byeScore);
+        }
+      });
+
+      // Helper to fetch numeric scores for a pairing
+      const getScoresFor = (
+        w: number,
+        home: string,
+        away: string
+      ): { hs?: number; as?: number } => {
+        const wk = ((results as any)[`week${w}`] || []) as Match[];
+        const hit = wk.find((mm: Match) => mm.home === home && mm.away === away);
+        const hs = typeof hit?.homeScore === 'number' ? (hit!.homeScore as number) : undefined;
+        const as = typeof hit?.awayScore === 'number' ? (hit!.awayScore as number) : undefined;
+        return { hs, as };
+      };
+
+      // Render current week fixtures
+      return (
+        <>
+          <div className="space-y-2">
+            {((fixtures as any)[`week${fixtureWeek}`] as any[]).map((f: any, i: number) =>
+              f.bye ? (
+                <div key={i} className="p-3 rounded-lg bg-blue-50 border-l-4 border-blue-400">
+                  <strong>BYE:</strong> {f.bye}{' '}
+                  {byePts.has(f.bye) ? <span>({byePts.get(f.bye)})</span> : null}
+                </div>
+              ) : (() => {
+                  const { hs, as } = getScoresFor(fixtureWeek, f.home as string, f.away as string);
+                  const haveScores = typeof hs === 'number' && typeof as === 'number';
+                  const isHomeWin = haveScores && (hs as number) > (as as number);
+                  const isAwayWin = haveScores && (as as number) > (hs as number);
+                  const isDraw = haveScores && (hs as number) === (as as number);
+
+                  return (
+                    <div
+                      key={i}
+                      className="p-3 rounded-lg bg-gray-50 border-l-4 border-gray-300 flex justify-between"
+                    >
+                      <span className="font-medium">
+                        <span className={isHomeWin || isDraw ? 'font-bold' : ''}>{f.home}</span>{' '}
+                        vs{' '}
+                        <span className={isAwayWin || isDraw ? 'font-bold' : ''}>{f.away}</span>
+                      </span>
+                      <span className="text-gray-700">
+                        {haveScores ? `${hs}–${as}` : '—'}
+                      </span>
+                    </div>
+                  );
+                })()
+            )}
+            {((fixtures as any)[`week${fixtureWeek}`] as any[]).length === 0 && (
+              <div className="text-gray-600">No fixtures loaded for Week {fixtureWeek} yet.</div>
+            )}
+          </div>
+
+          {/* Next Week's Fixtures */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-2">Next Week’s Fixtures</h3>
             <div className="space-y-2">
-              {(fixtures as any)[`week${fixtureWeek}`].map((f: any, i: number) =>
-                f.bye ? (
-                  <div key={i} className="p-3 rounded-lg bg-blue-50 border-l-4 border-blue-400">
-                    <strong>BYE:</strong> {f.bye}
-                  </div>
-                ) : (
-                  <div key={i} className="p-3 rounded-lg bg-gray-50 border-l-4 border-gray-300 flex justify-between">
-                    <span className="font-medium">
-                      {f.home} vs {f.away}
-                    </span>
-                    <span className="text-gray-700">{getResultFor(fixtureWeek, f.home, f.away) || '—'}</span>
-                  </div>
-                )
-              )}
-              {(fixtures as any)[`week${fixtureWeek}`].length === 0 && (
-                <div className="text-gray-600">No fixtures loaded for Week {fixtureWeek} yet.</div>
-              )}
+              {(() => {
+                const nextWeek = fixtureWeek + 1;
+                const next = ((fixtures as any)[`week${nextWeek}`] || []) as any[];
+                if (next.length === 0) {
+                  return <div className="text-gray-600">No fixtures loaded for Week {nextWeek} yet.</div>;
+                }
+                return next.map((f: any, i: number) =>
+                  f.bye ? (
+                    <div key={`n-${i}`} className="p-3 rounded-lg bg-blue-50 border-l-4 border-blue-400">
+                      <strong>BYE:</strong> {f.bye}
+                    </div>
+                  ) : (
+                    <div
+                      key={`n-${i}`}
+                      className="p-3 rounded-lg bg-gray-50 border-l-4 border-gray-300 flex justify-between"
+                    >
+                      <span className="font-medium">
+                        {f.home} vs {f.away}
+                      </span>
+                      <span className="text-gray-700">—</span>
+                    </div>
+                  )
+                );
+              })()}
             </div>
           </div>
-        )}
+        </>
+      );
+    })()}
+  </div>
+)}
+
 
         {activeTab === 'weekly' && (
           <div className="bg-white rounded-xl shadow-lg p-6">
