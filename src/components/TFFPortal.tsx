@@ -347,160 +347,134 @@ const min = scores.length ? Math.min(...scores) : 0;
           </div>
         )}
 
-{activeTab === 'overall' && (
+        {activeTab === 'overall' && (
   <div className="bg-white rounded-xl shadow-lg p-6">
     <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
       <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
     </h2>
 
     {(() => {
-      // ---- Canonical list of 26 teams (from your doc; each is unique and stands alone) ----
-      // Display labels (never combine): “<Team> <XI>”
+      // ── Canonical list of EXACT team labels to show (26) ──
       const CANONICAL: string[] = [
-        'Time will Tel 1XI',
-        'Time will Tel 2XI',
+        'Time will Tel 1XI','Time will Tel 2XI',
         'Second Wirst 2XI',
-        "What's the Wirtz that could happen 1XI",
-        "What's the Wirtz that could happen 2XI",
-        'Lazio FC 1XI',
-        'Lazio FC 2XI',
-        'MOBLANDERSON 1XI',
-        'MOBLANDERSON 2XI',
+        "What's the Wirtz that could happen 1XI","What's the Wirtz that could happen 2XI",
+        'Lazio FC 1XI','Lazio FC 2XI',
+        'MOBLANDERSON 1XI','MOBLANDERSON 2XI',
         'Porro Ball Defending 1XI',
-        'World Club Chumpions 1XI',
-        'World Club Chumpions 2XI',
-        'Middle Earth FC 1XI',
-        'Middle Earth FC 2XI',
+        'World Club Chumpions 1XI','World Club Chumpions 2XI',
+        'Middle Earth FC 1XI','Middle Earth FC 2XI',
         'Ruben Murray 2XI',
-        "Pecorino’s 1XI",
-        "Pecorino’s 2XI",
-        "Jimmy's Jokers 1XI",
-        "Jimmy's Jokers 2XI",
-        'Smoke AI 1XI',
-        'Smoke AI 2XI',
-        'Always the Wright One 1XI',
-        'Always the Wright One 2XI',
+        "Pecorino’s 1XI","Pecorino’s 2XI",
+        "Jimmy's Jokers 1XI","Jimmy's Jokers 2XI",
+        'Smoke AI 1XI','Smoke AI 2XI',
+        'Always the Wright One 1XI','Always the Wright One 2XI',
         'Hugo First 1XI',
         'Chicken Cunha 1XI',
         'Thomas the Frank engine 2XI',
       ];
 
-      // ---- Helpers: normalise various platform strings to our canonical labels ----
+      // ── Normaliser to map raw names in results → canonical labels ──
       const clean = (s: string) =>
         s
           .toLowerCase()
-          .replace(/[’‘]/g, "'")      // smart quotes -> straight
-          .replace(/\u2013|\u2014/g, '-') // en/em dash -> hyphen
-          .replace(/\s+/g, ' ')
+          .replace(/[’‘]/g, "'")
+          .replace(/\u2013|\u2014/g, "-")
+          .replace(/\s+/g, " ")
           .trim();
 
-      // Build a lookup of many synonyms -> canonical
-      const xiSynonyms = (xi: '1XI' | '2XI') =>
-        xi === '1XI'
-          ? ['1xi', '1 xi', '1st xi', '1st 11', 'first xi', '1 s', "1's"]
-          : ['2xi', '2 xi', '2nd xi', '2nd 11', 'second xi', '2 s', "2's"];
+      const XI_RE = /\b(1xi|2xi|1st xi|2nd xi|first xi|second xi|1st 11|2nd 11|1s|2s|1's|2's)\b/i;
+      const toXi = (raw: string): '1XI' | '2XI' | null => {
+        const r = clean(raw);
+        if (/\b2(xi|nd|s|'s| 11)?\b/.test(r)) return '2XI';
+        if (/\b1(xi|st|s|'s| 11)?\b/.test(r)) return '1XI';
+        return null;
+      };
+      const base = (label: string) => label.replace(/\s+(1XI|2XI)$/i, '').trim();
 
-      const makeSynonyms = (team: string, xi: '1XI' | '2XI') => {
-        const base = team;
-        const x = xiSynonyms(xi);
-        const withHyph = x.map((p) => `${p} - ${base}`);
-        const noHyph = x.map((p) => `${p} ${base}`);
-        const suffix = x.map((p) => `${base} ${p}`);
-        return [ ...withHyph, ...noHyph, ...suffix ];
+      const canonicalClean = CANONICAL.map((c) => ({ c, k: clean(c), b: clean(base(c)), xi: c.endsWith('2XI') ? '2XI' : '1XI' as '1XI'|'2XI' }));
+
+      const toCanonical = (raw: string): string | null => {
+        const r = clean(raw);
+        // 1) direct match
+        const direct = canonicalClean.find(x => x.k === r);
+        if (direct) return direct.c;
+
+        // 2) try "<base> <xi>" with flexible XI tokens anywhere
+        const xi = toXi(raw);
+        const candidates = xi ? canonicalClean.filter(x => x.xi === xi) : canonicalClean;
+        // choose the candidate whose base appears in the raw string (best length match)
+        let best: {c:string,b:string} | null = null;
+        candidates.forEach(x => {
+          if (r.includes(x.b) && (!best || x.b.length > best.b.length)) best = { c: x.c, b: x.b };
+        });
+        return best?.c ?? null;
       };
 
-      // Precompute synonym -> canonical map
-      const synToCanonical = new Map<string, string>();
-      const add = (k: string, v: string) => synToCanonical.set(clean(k), v);
+      // ── Build season + week points from results (never combine teams) ──
+      type NumMap = Map<string, number>;
+      const makeZeroMap = (keys: string[]): NumMap => new Map(keys.map(k => [k, 0]));
 
-      // Also add the canonical labels themselves as keys
-      CANONICAL.forEach((label) => add(label, label));
-
-      // Add rich synonym sets based on common URL/title variants from your sheet
-      // e.g. "1XI - MOBLANDERSON", "1st XI World Club Chumpions", "2nd 11 - Time will Tel", etc.
-      const addTeam = (team: string, xi: '1XI' | '2XI') => {
-        const label = `${team} ${xi}`;
-        const syns = makeSynonyms(team, xi);
-        syns.forEach((s) => add(s, label));
-        // A couple of extra ultra-common patterns
-        add(`${xi} - ${team}`, label);  // "1XI - Team"
-        add(`${xi} ${team}`, label);    // "1XI Team"
-        add(`${team} - ${xi}`, label);  // "Team - 1XI"
-        add(`${team} ${xi}`, label);    // "Team 1XI"
+      const accumulateUpToWeek = (weekMax: number): NumMap => {
+        const totals = makeZeroMap(CANONICAL);
+        for (let w = 1; w <= weekMax; w++) {
+          const wk = ((results as any)[`week${w}`] || []) as Match[];
+          wk.forEach((m: Match) => {
+            if (m.bye && typeof m.byeScore === 'number') {
+              const t = m.bye ? toCanonical(m.bye) : null;
+              if (t) totals.set(t, (totals.get(t) || 0) + (m.byeScore as number));
+              return;
+            }
+            if (m.home && typeof m.homeScore === 'number') {
+              const t = toCanonical(m.home);
+              if (t) totals.set(t, (totals.get(t) || 0) + (m.homeScore as number));
+            }
+            if (m.away && typeof m.awayScore === 'number') {
+              const t = toCanonical(m.away);
+              if (t) totals.set(t, (totals.get(t) || 0) + (m.awayScore as number));
+            }
+          });
+        }
+        return totals;
       };
 
-      // Fill all 26
-      [
-        ['Time will Tel', '1XI'], ['Time will Tel', '2XI'],
-        ['Second Wirst', '2XI'],
-        ["What's the Wirtz that could happen", '1XI'],
-        ["What's the Wirtz that could happen", '2XI'],
-        ['Lazio FC', '1XI'], ['Lazio FC', '2XI'],
-        ['MOBLANDERSON', '1XI'], ['MOBLANDERSON', '2XI'],
-        ['Porro Ball Defending', '1XI'],
-        ['World Club Chumpions', '1XI'], ['World Club Chumpions', '2XI'],
-        ['Middle Earth FC', '1XI'], ['Middle Earth FC', '2XI'],
-        ['Ruben Murray', '2XI'],
-        ["Pecorino’s", '1XI'], ["Pecorino’s", '2XI'],
-        ["Jimmy's Jokers", '1XI'], ["Jimmy's Jokers", '2XI'],
-        ['Smoke AI', '1XI'], ['Smoke AI', '2XI'],
-        ['Always the Wright One', '1XI'], ['Always the Wright One', '2XI'],
-        ['Hugo First', '1XI'],
-        ['Chicken Cunha', '1XI'],
-        ['Thomas the Frank engine', '2XI'],
-      ].forEach(([t, xi]) => addTeam(t as string, xi as '1XI' | '2XI'));
+      const seasonPts = accumulateUpToWeek(currentWeek);          // totals up to current week
+      const prevSeasonPts = currentWeek > 1 ? accumulateUpToWeek(currentWeek - 1) : makeZeroMap(CANONICAL);
 
-      const toCanonical = (raw: string): string | null => synToCanonical.get(clean(raw)) ?? null;
-
-      // ---- Build points maps for exactly our 26 labels ----
-      const seasonPts = new Map<string, number>(CANONICAL.map((n) => [n, 0]));
-      const weekPts = new Map<string, number>(CANONICAL.map((n) => [n, 0]));
-
-      // Season totals from your computed overallByWeek[currentWeek]
-      (overallByWeek[currentWeek] || []).forEach((r: { team: string; points: number }) => {
-        const canon = toCanonical(r.team);
-        if (canon) seasonPts.set(canon, Number(r.points) || 0);
-      });
-
-      // Current-week points (inc. BYE scores)
+      // Current week only
+      const weekPts = makeZeroMap(CANONICAL);
       const wk = ((results as any)[`week${currentWeek}`] || []) as Match[];
       wk.forEach((m: Match) => {
         if (m.bye && typeof m.byeScore === 'number') {
-          const canon = toCanonical(m.bye);
-          if (canon) weekPts.set(canon, (weekPts.get(canon) || 0) + m.byeScore);
+          const t = m.bye ? toCanonical(m.bye) : null;
+          if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.byeScore as number));
         } else {
           if (m.home && typeof m.homeScore === 'number') {
-            const canonH = toCanonical(m.home);
-            if (canonH) weekPts.set(canonH, (weekPts.get(canonH) || 0) + m.homeScore);
+            const t = toCanonical(m.home);
+            if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.homeScore as number));
           }
           if (m.away && typeof m.awayScore === 'number') {
-            const canonA = toCanonical(m.away);
-            if (canonA) weekPts.set(canonA, (weekPts.get(canonA) || 0) + m.awayScore);
+            const t = toCanonical(m.away);
+            if (t) weekPts.set(t, (weekPts.get(t) || 0) + (m.awayScore as number));
           }
         }
       });
 
-      // Previous positions (for Move arrow) — map via canonical too
+      // ── Compute previous positions for Move (rank prevSeasonPts) ──
+      const prevSorted = [...CANONICAL]
+        .map(team => ({ team, pts: prevSeasonPts.get(team) ?? 0, wk: 0 }))
+        .sort((a, b) => (b.pts - a.pts) || a.team.localeCompare(b.team));
       const prevPos = new Map<string, number>();
-      (overallByWeek[currentWeek - 1] || []).forEach(
-        (r: { team: string; points: number }, idx: number) => {
-          const canon = toCanonical(r.team);
-          if (canon) prevPos.set(canon, idx + 1);
-        }
-      );
+      prevSorted.forEach((r, i) => prevPos.set(r.team, i + 1));
 
-      // Rows = exactly our 26 labels
+      // ── Build rows and sort by Season desc, Week desc, then name ──
       type Row = { team: string; week: number; season: number };
-      const rows: Row[] = CANONICAL.map((name) => ({
-        team: name,
-        week: weekPts.get(name) ?? 0,
-        season: seasonPts.get(name) ?? 0,
+      const rows: Row[] = CANONICAL.map((team) => ({
+        team,
+        week: weekPts.get(team) ?? 0,
+        season: seasonPts.get(team) ?? 0,
       }));
-
-      // Sort by Season desc, then Week desc, then alpha
-      rows.sort((a, b) =>
-        b.season - a.season || b.week - a.week || a.team.localeCompare(b.team)
-      );
+      rows.sort((a: Row, b: Row) => (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team));
 
       return (
         <div className="overflow-x-auto">
@@ -521,10 +495,7 @@ const min = scores.length ? Math.min(...scores) : 0;
                 const delta = prev ? prev - now : 0;
                 const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '•';
                 return (
-                  <tr
-                    key={row.team}
-                    className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}
-                  >
+                  <tr key={row.team} className={'border-b hover:bg-gray-50 ' + (idx < 6 ? 'bg-yellow-50' : '')}>
                     <td className="px-3 py-2 font-bold">{now}</td>
                     <td className="px-3 py-2">{row.team}</td>
                     <td className="px-2 py-2 text-center font-semibold">{row.week}</td>
