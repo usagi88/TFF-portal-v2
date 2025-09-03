@@ -347,7 +347,7 @@ const min = scores.length ? Math.min(...scores) : 0;
           </div>
         )}
 
-        {activeTab === 'overall' && (
+       {activeTab === 'overall' && (
   <div className="bg-white rounded-xl shadow-lg p-6">
     <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
       <Trophy className="text-yellow-500" size={28} /> Overall League (1XI + 2XI)
