@@ -1,5 +1,5 @@
 // src/lib/overall.ts
-import { CANONICAL_TEAMS, toCanonical } from "./teamCanon";
+import { CANONICAL_TEAMS, toCanonical } from './teamCanon';
 
 export type Match = {
   home?: string;
@@ -12,16 +12,18 @@ export type Match = {
 
 export type OverallRow = { team: string; week: number; season: number };
 
+type ResultsByWeek = Record<string, Match[] | undefined>;
 type NumMap = Map<string, number>;
-const zeroMap = (keys: string[]): NumMap => new Map(keys.map(k => [k, 0]));
 
-function totalsUpToWeek(results: Record<string, Match[] | undefined>, weekMax: number): NumMap {
-  const totals = zeroMap(CANONICAL_TEAMS);
+const zeroMap = (keys: string[]): NumMap => new Map<string, number>(keys.map((k) => [k, 0]));
+
+function totalsUpToWeek(results: ResultsByWeek, weekMax: number): NumMap {
+  const totals: NumMap = zeroMap(CANONICAL_TEAMS);
   for (let w = 1; w <= weekMax; w++) {
-    const wk = results[`week${w}`] || [];
-    wk.forEach((m) => {
+    const wk: Match[] = results[`week${w}`] || [];
+    wk.forEach((m: Match) => {
       if (m.bye && typeof m.byeScore === 'number') {
-        const t = m.bye ? toCanonical(m.bye) : null;
+        const t = toCanonical(m.bye);
         if (t) totals.set(t, (totals.get(t) || 0) + m.byeScore);
         return;
       }
@@ -39,17 +41,19 @@ function totalsUpToWeek(results: Record<string, Match[] | undefined>, weekMax: n
 }
 
 export function buildOverall(
-  results: Record<string, Match[] | undefined>,
+  results: ResultsByWeek,
   currentWeek: number
 ): { rows: OverallRow[]; prevPos: Map<string, number>; unmapped: string[] } {
-  const seasonTotals = totalsUpToWeek(results, currentWeek);
-  const prevTotals = currentWeek > 1 ? totalsUpToWeek(results, currentWeek - 1) : zeroMap(CANONICAL_TEAMS);
+  const seasonTotals: NumMap = totalsUpToWeek(results, currentWeek);
+  const prevTotals: NumMap =
+    currentWeek > 1 ? totalsUpToWeek(results, currentWeek - 1) : zeroMap(CANONICAL_TEAMS);
 
-  // current week only
-  const weekPts = zeroMap(CANONICAL_TEAMS);
-  (results[`week${currentWeek}`] || []).forEach((m) => {
+  // current-week only
+  const weekPts: NumMap = zeroMap(CANONICAL_TEAMS);
+  const wk: Match[] = results[`week${currentWeek}`] || [];
+  wk.forEach((m: Match) => {
     if (m.bye && typeof m.byeScore === 'number') {
-      const t = m.bye ? toCanonical(m.bye) : null;
+      const t = toCanonical(m.bye);
       if (t) weekPts.set(t, (weekPts.get(t) || 0) + m.byeScore);
     } else {
       if (m.home && typeof m.homeScore === 'number') {
@@ -63,27 +67,35 @@ export function buildOverall(
     }
   });
 
-  // previous positions for Move
-  const prevSorted = [...CANONICAL_TEAMS]
-    .map(team => ({ team, pts: prevTotals.get(team) ?? 0 }))
-    .sort((a, b) => (b.pts - a.pts) || a.team.localeCompare(b.team));
-  const prevPos = new Map<string, number>();
-  prevSorted.forEach((r, i) => prevPos.set(r.team, i + 1));
+  // previous positions (for Move)
+  const prevSorted: Array<{ team: string; pts: number }> = CANONICAL_TEAMS.map((team: string) => ({
+    team,
+    pts: prevTotals.get(team) ?? 0,
+  })).sort((a: { pts: number; team: string }, b: { pts: number; team: string }) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    return a.team.localeCompare(b.team);
+  });
 
-  const rows: OverallRow[] = CANONICAL_TEAMS.map((team) => ({
+  const prevPos: Map<string, number> = new Map<string, number>();
+  prevSorted.forEach((r: { team: string; pts: number }, i: number) => prevPos.set(r.team, i + 1));
+
+  // rows for render
+  const rows: OverallRow[] = CANONICAL_TEAMS.map((team: string) => ({
     team,
     week: weekPts.get(team) ?? 0,
     season: seasonTotals.get(team) ?? 0,
-  })).sort(
-    (a, b) => (b.season - a.season) || (b.week - a.week) || a.team.localeCompare(b.team)
-  );
+  })).sort((a: OverallRow, b: OverallRow) => {
+    if (b.season !== a.season) return b.season - a.season;
+    if (b.week !== a.week) return b.week - a.week;
+    return a.team.localeCompare(b.team);
+  });
 
-  // gather any strings we couldn't map (helps you fill TEAM_ALIAS_MAP fast)
-  const unmappedSet = new Set<string>();
+  // any unmapped raw strings (to help extend TEAM_ALIAS_MAP)
+  const unmappedSet: Set<string> = new Set<string>();
   for (let w = 1; w <= currentWeek; w++) {
-    (results[`week${w}`] || []).forEach((m) => {
-      const candidates = [m.home, m.away, m.bye].filter(Boolean) as string[];
-      candidates.forEach((raw) => {
+    const wk2: Match[] = results[`week${w}`] || [];
+    wk2.forEach((m: Match) => {
+      [m.home, m.away, m.bye].forEach((raw) => {
         if (raw && !toCanonical(raw)) unmappedSet.add(raw);
       });
     });
