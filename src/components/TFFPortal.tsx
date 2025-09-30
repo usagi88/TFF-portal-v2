@@ -1,6 +1,6 @@
 import { buildOverall } from '../lib/overall';
 // (If you no longer import CANONICAL_TEAMS here, remove that unused import)
-
+import { toCanonical } from '../lib/teamCanon';
 import { CANONICAL_TEAMS } from '../lib/teamCanon';
 import React, { useMemo, useState } from 'react';
 import { Trophy, Users, TrendingUp, Award, FileText, Target, Copy, Share2, Skull } from 'lucide-react';
@@ -88,58 +88,61 @@ export default function TFFPortal() {
   // ---------- Chumpions standings (1XI only; BYE = +1pt) ----------
   const chumpionsTeamNames = new Set((teams as any[]).map((t) => t.team));
 
-  const chumpionsStandings: Standing[] = useMemo(() => {
-    const table: Record<string, Standing> = {};
-    const byePoint = 1;
+// ---------- Chumpions standings (1XI only; BYE = +1pt) ----------
+const chumpionsStandings: Standing[] = useMemo(() => {
+  const table: Record<string, Standing> = {};
+  const byePoint = 1;
 
-    for (let w = 1; w <= currentWeek; w++) {
-      const wk = (results as any)[`week${w}`] as Match[] | undefined;
-      (wk ?? []).forEach((m: Match) => {
-        if (m.bye) {
-          if (!table[m.bye]) {
-            table[m.bye] = { team: m.bye, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pts: 0 };
-          }
-          table[m.bye].pts += byePoint;
-          return;
+  for (let w = 1; w <= currentWeek; w++) {
+    const wk = (results as any)[`week${w}`] as Match[] | undefined;
+    (wk ?? []).forEach((m: Match) => {
+      if (m.bye) {
+        const tC = toCanonical(m.bye);
+        if (!tC || !tC.endsWith(' 1XI')) return;
+        if (!table[tC]) {
+          table[tC] = { team: tC, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pts: 0 };
         }
-        if (!m.home || !m.away) return;
-        if (!chumpionsTeamNames.has(m.home) || !chumpionsTeamNames.has(m.away)) return;
+        table[tC].pts += byePoint;
+        return;
+      }
 
-        [m.home, m.away].forEach((t) => {
-          if (!table[t]) table[t] = { team: t, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pts: 0 };
-        });
+      const hC = m.home ? toCanonical(m.home) : null;
+      const aC = m.away ? toCanonical(m.away) : null;
+      if (!hC || !aC) return;
+      // Only include 1XI in Chumpions
+      if (!hC.endsWith(' 1XI') || !aC.endsWith(' 1XI')) return;
 
-        const hs = m.homeScore ?? 0;
-        const as = m.awayScore ?? 0;
+      if (!table[hC]) table[hC] = { team: hC, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pts: 0 };
+      if (!table[aC]) table[aC] = { team: aC, played: 0, won: 0, drawn: 0, lost: 0, pf: 0, pa: 0, pts: 0 };
 
-        table[m.home].played++;
-        table[m.away].played++;
-        table[m.home].pf += hs;
-        table[m.home].pa += as;
-        table[m.away].pf += as;
-        table[m.away].pa += hs;
+      const hs = m.homeScore ?? 0;
+      const as = m.awayScore ?? 0;
 
-        if (hs > as) {
-          table[m.home].won++;
-          table[m.home].pts += 3;
-          table[m.away].lost++;
-        } else if (hs < as) {
-          table[m.away].won++;
-          table[m.away].pts += 3;
-          table[m.home].lost++;
-        } else {
-          table[m.home].drawn++;
-          table[m.away].drawn++;
-          table[m.home].pts++;
-          table[m.away].pts++;
-        }
-      });
-    }
+      table[hC].played++;
+      table[aC].played++;
+      table[hC].pf += hs;
+      table[hC].pa += as;
+      table[aC].pf += as;
+      table[aC].pa += hs;
 
-    const arr = Object.values(table) as Standing[];
-    arr.sort(byStanding);
-    return arr;
-  }, [results, currentWeek]);
+      if (hs > as) {
+        table[hC].won++; table[hC].pts += 3;
+        table[aC].lost++;
+      } else if (hs < as) {
+        table[aC].won++; table[aC].pts += 3;
+        table[hC].lost++;
+      } else {
+        table[hC].drawn++; table[aC].drawn++;
+        table[hC].pts++; table[aC].pts++;
+      }
+    });
+  }
+
+  const arr = Object.values(table) as Standing[];
+  arr.sort(byStanding);
+  return arr;
+}, [results, currentWeek]);
+
 
   // ---------- Overall standings (1XI + 2XI) by cumulative season points ----------
   const overallByWeek: Record<number, OverallRow[]> = useMemo(() => {
@@ -181,32 +184,52 @@ export default function TFFPortal() {
   // ---------- Helpers ----------
   const resultLetter = (hs: number, as: number) => (hs > as ? 'W' : hs < as ? 'L' : 'D');
 
-  const computeForm = (team: string) => {
-    const letters: string[] = [];
-    for (let w = currentWeek; w >= 1 && letters.length < 5; w--) {
-      const wk = (results as any)[`week${w}`] as Match[] | undefined;
-      const bye = (wk || []).find((m) => m.bye === team);
-      if (bye) {
-        letters.push('B');
-        continue;
-      }
-      const m = (wk || []).find((x) => x.home === team || x.away === team);
-      if (!m || typeof m.homeScore !== 'number' || typeof m.awayScore !== 'number') continue;
-      letters.push(m.home === team ? resultLetter(m.homeScore, m.awayScore) : resultLetter(m.awayScore, m.homeScore));
+const computeForm = (team: string) => {
+  const teamC = toCanonical(team);
+  if (!teamC) return '';
+  const letters: string[] = [];
+  for (let w = currentWeek; w >= 1 && letters.length < 5; w--) {
+    const wk = (results as any)[`week${w}`] as Match[] | undefined;
+    if (!wk) continue;
+
+    // BYE
+    const bye = wk.find((m) => m.bye && toCanonical(m.bye) === teamC);
+    if (bye) { letters.push('B'); continue; }
+
+    // Match
+    const m = wk.find((x) => (x.home && toCanonical(x.home) === teamC) || (x.away && toCanonical(x.away) === teamC));
+    if (!m || typeof m.homeScore !== 'number' || typeof m.awayScore !== 'number') continue;
+
+    if (m.home && toCanonical(m.home) === teamC) {
+      letters.push(resultLetter(m.homeScore, m.awayScore));
+    } else if (m.away && toCanonical(m.away) === teamC) {
+      letters.push(resultLetter(m.awayScore, m.homeScore));
     }
-    return letters.reverse().join('');
-  };
+  }
+  return letters.reverse().join('');
+};
+
 
   const weekKeys: number[] = Object.keys(fixtures as Record<string, unknown>)
     .filter((k: string) => k.startsWith('week'))
     .map((k: string) => Number(k.replace('week', '')))
     .sort(byNumberAsc);
 
-  const getResultFor = (w: number, home: string, away: string) => {
-    const wk = (results as any)[`week${w}`] as Match[] | undefined;
-    const hit = (wk || []).find((m) => m.home === home && m.away === away);
-    return hit && typeof hit.homeScore === 'number' ? `${hit.homeScore}–${hit.awayScore}` : '';
-  };
+const getResultFor = (w: number, home: string, away: string) => {
+  const wk = (results as any)[`week${w}`] as Match[] | undefined;
+  const hC = toCanonical(home);
+  const aC = toCanonical(away);
+  if (!wk || !hC || !aC) return '';
+  const hit = wk.find((m) => {
+    const mh = m.home ? toCanonical(m.home) : null;
+    const ma = m.away ? toCanonical(m.away) : null;
+    return mh === hC && ma === aC;
+  });
+  return hit && typeof hit.homeScore === 'number'
+    ? `${hit.homeScore}–${hit.awayScore}`
+    : '';
+};
+
 
   const buildShareText = (w: number) => {
     const list = (fixtures as any)[`week${w}`] || [];
