@@ -56,6 +56,18 @@ export default function TFFPortal() {
   const [copied, setCopied] = useState<null | 'copied' | 'error'>(null);
   const [fixtureWeek, setFixtureWeek] = useState<number>((meta as any).currentWeek ?? 1);
 
+  React.useEffect(() => {
+  const onUpdated = () => setRefreshKey((k) => k + 1);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('tff-results-updated', onUpdated);
+  }
+  return () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('tff-results-updated', onUpdated);
+    }
+  };
+}, []);
+  
   // Merge results from localStorage (OCR trial) with static results
   const results = useMemo(() => {
     const fromLS = typeof window !== 'undefined' ? localStorage.getItem('tff_results') : null;
