@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CANONICAL_TEAMS } from '../lib/teamCanon';
 import fixtures from '../data/fixtures.json';
+import { toCanonical } from '../lib/teamCanon';
+
 
 type Match = {
   home?: string;
@@ -70,26 +72,42 @@ export default function ManualResults({ onUpdate }: { onUpdate: () => void }) {
     setCurrentWeekPoints((prev) => ({ ...prev, [team]: safe }));
   };
 
-  const synthesizeWeekResults = (week: number, teamPts: Record<string, number>): Match[] => {
-    const fx = ((fixtures as any)[`week${week}`] || []) as Array<any>;
-    return fx.map((f) => {
-      if (f.bye) {
-        const byeTeam = String(f.bye);
-        return {
-          bye: byeTeam,
-          byeScore: typeof teamPts[byeTeam] === 'number' ? teamPts[byeTeam] : 0,
-        };
-      }
-      const home = String(f.home);
-      const away = String(f.away);
-      return {
-        home,
-        away,
-        homeScore: typeof teamPts[home] === 'number' ? teamPts[home] : 0,
-        awayScore: typeof teamPts[away] === 'number' ? teamPts[away] : 0,
-      };
-    });
+const synthesizeWeekResults = (
+  week: number,
+  teamPts: Record<string, number>
+): Match[] => {
+  const fx = ((fixtures as any)[`week${week}`] || []) as Array<any>;
+
+  // helper to safely fetch a team’s points using canonical mapping
+  const getPts = (rawName: string | undefined): number => {
+    if (!rawName) return 0;
+    const canon = toCanonical(rawName);
+    if (canon && typeof teamPts[canon] === 'number') return teamPts[canon];
+    // fallback: if someone keyed LS by raw fixture name previously
+    if (typeof teamPts[rawName] === 'number') return teamPts[rawName];
+    return 0;
   };
+
+  return fx.map((f) => {
+    if (f.bye) {
+      // Keep original fixture team string in results, but resolve points via canonical
+      const byeTeam = String(f.bye);
+      return {
+        bye: byeTeam,
+        byeScore: getPts(byeTeam),
+      };
+    }
+    const home = String(f.home);
+    const away = String(f.away);
+    return {
+      home,               // keep original fixture label for display consistency
+      away,
+      homeScore: getPts(home), // resolve using canonical so input matches
+      awayScore: getPts(away),
+    };
+  });
+};
+
 
   const handleSave = () => {
     const nextStore = { ...pointsStore, [selectedWeek]: { ...currentWeekPoints } };
@@ -189,7 +207,13 @@ export default function ManualResults({ onUpdate }: { onUpdate: () => void }) {
           {(fixtures as any)[`week${selectedWeek}`]?.map((f: any, i: number) =>
             f.bye ? (
               <div key={i} className="p-2 rounded bg-blue-50 border-l-4 border-blue-400 text-sm">
-                <strong>BYE:</strong> {f.bye} ({currentWeekPoints[f.bye] ?? 0})
+                <strong>BYE:</strong> {f.bye} ({(() => {
+  const canonB = toCanonical(f.bye);
+  const v = (canonB && currentWeekPoints[canonB] !== undefined)
+    ? currentWeekPoints[canonB]
+    : (currentWeekPoints[f.bye] ?? 0);
+  return v;
+})()})
               </div>
             ) : (
               <div key={i} className="p-2 rounded bg-gray-50 border-l-4 border-gray-300 text-sm flex justify-between">
@@ -197,8 +221,14 @@ export default function ManualResults({ onUpdate }: { onUpdate: () => void }) {
                   {f.home} vs {f.away}
                 </span>
                 <span className="font-semibold">
-                  {(currentWeekPoints[f.home] ?? 0)}–{(currentWeekPoints[f.away] ?? 0)}
-                </span>
+            {(() => {
+    const canonH = toCanonical(f.home);
+    const canonA = toCanonical(f.away);
+    const h = (canonH && currentWeekPoints[canonH] !== undefined) ? currentWeekPoints[canonH] : (currentWeekPoints[f.home] ?? 0);
+    const a = (canonA && currentWeekPoints[canonA] !== undefined) ? currentWeekPoints[canonA] : (currentWeekPoints[f.away] ?? 0);
+    return `${h}–${a}`;
+  })()}
+</span>
               </div>
             )
           )}
