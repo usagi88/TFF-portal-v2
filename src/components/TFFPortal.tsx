@@ -9,7 +9,7 @@ import fixtures from '../data/fixtures.json';
 import resultsStatic from '../data/results.json';
 import meta from '../data/meta.json';
 import roll from '../data/rollofhonour.json';
-import UploadResults from './UploadResults';
+import ManualResults from './ManualResults';
 
 // Debug flag: visit the site with ?debug=1 to show unmapped names panel
 const debugEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
@@ -600,15 +600,18 @@ const min = scores.length ? Math.min(...scores) : 0;
 )}
 
 
-        {activeTab === 'weekly' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-3 flex items-center gap-3">
-              <FileText className="text-purple-600" size={28} /> Weekly Update
-            </h2>
-            <p className="text-gray-600 mb-2">Upload a PNG/JPG screenshot to OCR results (trial mode saves to your browser only).</p>
-            <UploadResults onUpdate={() => setRefreshKey((k) => k + 1)} />
-          </div>
-        )}
+     {activeTab === 'weekly' && (
+  <div className="bg-white rounded-xl shadow-lg p-6">
+    <h2 className="text-2xl font-bold mb-3 flex items-center gap-3">
+      <FileText className="text-purple-600" size={28} /> Weekly Update
+    </h2>
+    <p className="text-gray-600 mb-2">
+      Enter scores for all 26 teams each week. Saving auto-updates the Fixtures & Tables.
+    </p>
+    <ManualResults onUpdate={() => setRefreshKey((k) => k + 1)} />
+  </div>
+)}
+
 
         {activeTab === 'nations' && (
           <div className="bg-white rounded-xl shadow-lg p-6">
