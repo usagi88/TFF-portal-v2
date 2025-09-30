@@ -11,6 +11,12 @@ type Match = {
   byeScore?: number | null;
 };
 
+function broadcastResultsUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('tff-results-updated'));
+  }
+}
+
 type ResultsByWeek = Record<string, Match[] | undefined>;
 
 const LS_POINTS_KEY = 'tff_week_points';
@@ -96,6 +102,7 @@ export default function ManualResults({ onUpdate }: { onUpdate: () => void }) {
     writeJSON(LS_RESULTS_KEY, updated);
 
     onUpdate();
+    broadcastResultsUpdated();
   };
 
   const handleClearWeek = () => {
@@ -109,6 +116,7 @@ export default function ManualResults({ onUpdate }: { onUpdate: () => void }) {
     writeJSON(LS_RESULTS_KEY, existingResults);
 
     onUpdate();
+    broadcastResultsUpdated();
   };
 
   const totalEntered = Object.values(currentWeekPoints).filter((n) => typeof n === 'number').length;
